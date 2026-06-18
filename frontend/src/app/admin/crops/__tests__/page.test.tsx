@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import AdminCropsPage from './page';
+import AdminCropsPage from '../page';
 
 // Mock fetch
 global.fetch = jest.fn();

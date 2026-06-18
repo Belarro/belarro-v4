@@ -94,10 +94,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Generate UUIDs for all records
+    const cropId = crypto.randomUUID();
+    const procedureId = procedure ? crypto.randomUUID() : null;
+    const variantIds = variants ? variants.map(() => crypto.randomUUID()) : [];
+
     // Create crop
     const crops = await fetchFromSupabase('/belarro_v4_crop', {
       method: 'POST',
       body: JSON.stringify({
+        id: cropId,
         name_en,
         name_de,
         flavor_en: flavor_en || null,
@@ -113,7 +119,8 @@ export async function POST(request: NextRequest) {
       await fetchFromSupabase('/belarro_v4_growth_procedure', {
         method: 'POST',
         body: JSON.stringify({
-          crop_id: crop.id,
+          id: procedureId,
+          crop_id: cropId,
           soak_enabled: procedure.soak_enabled || false,
           soak_hours: procedure.soak_hours || null,
           cover_soil_enabled: procedure.cover_soil_enabled || false,
@@ -128,12 +135,14 @@ export async function POST(request: NextRequest) {
 
     // Create variants if provided
     if (variants && Array.isArray(variants) && variants.length > 0) {
-      for (const variant of variants) {
+      for (let i = 0; i < variants.length; i++) {
+        const variant = variants[i];
         if (variant.size_name && variant.size_grams) {
           await fetchFromSupabase('/belarro_v4_product_variant', {
             method: 'POST',
             body: JSON.stringify({
-              crop_id: crop.id,
+              id: variantIds[i],
+              crop_id: cropId,
               size_name: variant.size_name,
               size_grams: variant.size_grams,
               price_eur: variant.price_eur || null,
@@ -146,15 +155,15 @@ export async function POST(request: NextRequest) {
 
     // Fetch full crop with relations
     const fullCrop = await fetchFromSupabase(
-      `/belarro_v4_crop?id=eq.${crop.id}&select=*`
+      `/belarro_v4_crop?id=eq.${cropId}&select=*`
     );
 
     const procedure_data = await fetchFromSupabase(
-      `/belarro_v4_growth_procedure?crop_id=eq.${crop.id}&select=*`
+      `/belarro_v4_growth_procedure?crop_id=eq.${cropId}&select=*`
     );
 
     const variants_data = await fetchFromSupabase(
-      `/belarro_v4_product_variant?crop_id=eq.${crop.id}&select=*&order=size_grams.asc`
+      `/belarro_v4_product_variant?crop_id=eq.${cropId}&select=*&order=size_grams.asc`
     );
 
     return NextResponse.json(
