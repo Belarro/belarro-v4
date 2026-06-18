@@ -1,0 +1,99 @@
+// Belarro V4 — Farm Management System
+// Clean, minimal schema for crop management
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// CROPS — Core Product
+// ============================================
+
+model Crop {
+  id              String    @id @default(cuid())
+  name_en         String
+  name_de         String
+  flavor_en       String?
+  flavor_de       String?
+  status          String    @default("active") // "active" | "paused"
+
+  // Relations
+  procedure       GrowthProcedure?
+  variants        ProductVariant[]
+
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+  deleted_at      DateTime? // Soft delete
+
+  @@map("belarro_v4_crop")
+  @@index([status])
+  @@index([deleted_at])
+}
+
+// ============================================
+// GROWTH PROCEDURE — Linear workflow
+// ============================================
+
+model GrowthProcedure {
+  id                      String    @id @default(cuid())
+  crop_id                 String    @unique
+
+  // Step 1: Soak (optional)
+  soak_enabled            Boolean   @default(false)
+  soak_hours              Int?
+
+  // Step 2: Seed (always present)
+  // (no config needed)
+
+  // Step 3: Cover Soil (optional)
+  cover_soil_enabled      Boolean   @default(false)
+
+  // Step 4: Stack (optional)
+  stack_enabled           Boolean   @default(false)
+  stack_days              Int?
+
+  // Step 5: Growth Environment (required)
+  growth_env_type         String    // "light" | "blackout" | "humidity_dome"
+  growth_env_days         Int
+
+  // Step 5b: Humidity Dome (concurrent with light, optional)
+  humidity_dome_enabled   Boolean   @default(false)
+
+  // Step 6: Harvest (always present, end of cycle)
+
+  // Relations
+  crop                    Crop      @relation(fields: [crop_id], references: [id], onDelete: Cascade)
+
+  created_at              DateTime  @default(now())
+  updated_at              DateTime  @updatedAt
+
+  @@map("belarro_v4_growth_procedure")
+}
+
+// ============================================
+// PRODUCT VARIANTS — Sizes & Prices
+// ============================================
+
+model ProductVariant {
+  id              String    @id @default(cuid())
+  crop_id         String
+  size_name       String    // "100g", "225g", "450g", "Container", or custom
+  size_grams      Float     // Internal grams (30 for Container)
+  price_eur       Float?    // Nullable for Container (internal only)
+  is_internal     Boolean   @default(false) // true = hidden from customer view
+
+  // Relations
+  crop            Crop      @relation(fields: [crop_id], references: [id], onDelete: Cascade)
+
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+
+  @@map("belarro_v4_product_variant")
+  @@index([crop_id])
+  @@unique([crop_id, size_name])
+}
