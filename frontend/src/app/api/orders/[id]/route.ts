@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchFromSupabase } from '@/lib/supabase';
 import { requireAuth } from '@/lib/auth';
+import { logError } from '@/lib/logger';
 
 type Params = {
   params: Promise<{ id: string }>
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest, props: Params) {
       }
     });
   } catch (error) {
-    console.error('Order GET details error:', error);
+    await logError('GET /api/orders/[id]', error, { status: 500 });
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
@@ -66,7 +67,7 @@ export async function PUT(request: NextRequest, props: Params) {
       message: 'Order updated successfully',
     });
   } catch (error) {
-    console.error('Order PUT error:', error);
+    await logError('PUT /api/orders/[id]', error, { status: 500 });
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
@@ -80,8 +81,10 @@ export async function DELETE(request: NextRequest, props: Params) {
     if (!auth.ok) return auth.response;
     const { id } = await props.params;
 
+    // Soft delete (Data Protection Mandate).
     await fetchFromSupabase(`/belarro_v4_order?id=eq.${id}`, {
-      method: 'DELETE',
+      method: 'PATCH',
+      body: JSON.stringify({ deleted_at: new Date().toISOString() }),
     });
 
     return NextResponse.json({
@@ -89,7 +92,7 @@ export async function DELETE(request: NextRequest, props: Params) {
       message: 'Order deleted successfully',
     });
   } catch (error) {
-    console.error('Order DELETE error:', error);
+    await logError('DELETE /api/orders/[id]', error, { status: 500 });
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }

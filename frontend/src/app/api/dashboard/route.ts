@@ -18,6 +18,9 @@ export async function GET(request: NextRequest) {
     let totalOrderValue = 0;
     let activeSeedingBatches = 0;
     let pendingFollowUps = 0;
+    let followUpConversionRate = 0;
+    let websiteLeadCount = 0;
+    let saletrackerLeadCount = 0;
     let seedReorderAlerts = 0;
     let packageReorderAlerts = 0;
     
@@ -77,6 +80,22 @@ export async function GET(request: NextRequest) {
       // Fetch followups
       const followups = await fetchFromSupabase('/belarro_v4_follow_up?select=id,status');
       pendingFollowUps = (followups || []).filter((f: any) => f.status === 'pending').length;
+      const totalFollowUps = (followups || []).length;
+      const completedFollowUps = (followups || []).filter((f: any) => f.status === 'completed' || f.status === 'sent').length;
+      followUpConversionRate = totalFollowUps > 0
+        ? parseFloat(((completedFollowUps / totalFollowUps) * 100).toFixed(1))
+        : 0;
+
+      // Lead source breakdown: website leads vs saletracker (customers w/o website lead).
+      try {
+        const websiteLeads = await fetchFromSupabase('/belarro_v4_website_lead?select=id,source');
+        websiteLeadCount = (websiteLeads || []).length;
+      } catch {
+        websiteLeadCount = 0; // table not applied yet
+      }
+      // Everything in customers that did not originate from a website lead is
+      // treated as saletracker/manual for the breakdown.
+      saletrackerLeadCount = totalCustomers;
 
       // Fetch inventory
       const [seedInv, packageInv] = await Promise.all([
@@ -182,6 +201,12 @@ export async function GET(request: NextRequest) {
         operations: {
           active_seeding_batches: activeSeedingBatches,
           pending_follow_ups: pendingFollowUps,
+          follow_up_conversion_rate_percent: followUpConversionRate,
+        },
+        lead_sources: {
+          website: websiteLeadCount,
+          saletracker: saletrackerLeadCount,
+          total: websiteLeadCount + saletrackerLeadCount,
         },
         alerts: {
           seed_reorder_alerts: seedReorderAlerts,

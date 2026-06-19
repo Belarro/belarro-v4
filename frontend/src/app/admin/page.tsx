@@ -22,6 +22,12 @@ interface DashboardData {
   operations: {
     active_seeding_batches: number;
     pending_follow_ups: number;
+    follow_up_conversion_rate_percent?: number;
+  };
+  lead_sources?: {
+    website: number;
+    saletracker: number;
+    total: number;
   };
   alerts: {
     seed_reorder_alerts: number;
@@ -164,6 +170,12 @@ export default function Dashboard() {
                 {data.operations.pending_follow_ups} remaining
               </span>
             </div>
+            <div className="py-3 flex justify-between items-center">
+              <span className="text-sm font-medium text-gray-600">Follow-up Conversion</span>
+              <span className="px-2.5 py-1 text-xs font-bold rounded-full bg-green-50 text-green-700">
+                {data.operations.follow_up_conversion_rate_percent ?? 0}%
+              </span>
+            </div>
           </div>
         </div>
 
@@ -207,6 +219,19 @@ export default function Dashboard() {
             <span>Conversion Rate</span>
             <span className="font-bold text-gray-800">{data.customer_funnel.conversion_rate_percent}%</span>
           </div>
+          {data.lead_sources && (
+            <div className="pt-2 border-t border-gray-100 space-y-1.5">
+              <span className="text-[10px] text-gray-400 font-semibold uppercase">Lead Sources</span>
+              <div className="flex items-center justify-between text-xs text-gray-600">
+                <span>Website</span>
+                <span className="font-bold text-blue-600">{data.lead_sources.website}</span>
+              </div>
+              <div className="flex items-center justify-between text-xs text-gray-600">
+                <span>SaleTracker / Manual</span>
+                <span className="font-bold text-gray-800">{data.lead_sources.saletracker}</span>
+              </div>
+            </div>
+          )}
         </div>
 
       </div>

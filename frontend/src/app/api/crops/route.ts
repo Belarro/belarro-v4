@@ -1,29 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
-
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://wbqzlxdyjdmbzifhsyil.supabase.co';
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-
-async function fetchFromSupabase(path: string, options: RequestInit = {}) {
-  const url = `${SUPABASE_URL}/rest/v1${path}`;
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      'apikey': SUPABASE_SERVICE_ROLE_KEY,
-      'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-      'Content-Type': 'application/json',
-      'Prefer': 'return=representation',
-      ...options.headers,
-    },
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Supabase error: ${response.status} - ${error}`);
-  }
-
-  return response.json();
-}
+import { fetchFromSupabase } from '@/lib/supabase';
+import { logError } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -54,7 +32,7 @@ export async function GET(request: NextRequest) {
 
       // Fetch variants
       const variants = await fetchFromSupabase(
-        `/belarro_v4_product_variant?crop_id=eq.${cropId}&select=*&order=size_grams.asc`
+        `/belarro_v4_product_variant?crop_id=eq.${cropId}&deleted_at=is.null&select=*&order=size_grams.asc`
       );
 
       return NextResponse.json({
@@ -77,7 +55,7 @@ export async function GET(request: NextRequest) {
       data: crops || [],
     });
   } catch (error) {
-    console.error('Crops API GET error:', error);
+    await logError('GET /api/crops', error, { status: 500 });
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
@@ -176,7 +154,7 @@ export async function POST(request: NextRequest) {
     );
 
     const variants_data = await fetchFromSupabase(
-      `/belarro_v4_product_variant?crop_id=eq.${cropId}&select=*&order=size_grams.asc`
+      `/belarro_v4_product_variant?crop_id=eq.${cropId}&deleted_at=is.null&select=*&order=size_grams.asc`
     );
 
     return NextResponse.json(
@@ -191,7 +169,7 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    console.error('Crops API POST error:', error);
+    await logError('POST /api/crops', error, { status: 500 });
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
@@ -279,10 +257,14 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    // Update variants (delete old, create new)
+    // Update variants (soft-delete old, create new).
+    // Data Protection Mandate: NEVER hard-delete. We mark existing live variants
+    // as deleted_at = now() and insert the new set. History is preserved and the
+    // no-hard-delete DB trigger is respected.
     if (variants && Array.isArray(variants)) {
-      await fetchFromSupabase(`/belarro_v4_product_variant?crop_id=eq.${id}`, {
-        method: 'DELETE',
+      await fetchFromSupabase(`/belarro_v4_product_variant?crop_id=eq.${id}&deleted_at=is.null`, {
+        method: 'PATCH',
+        body: JSON.stringify({ deleted_at: new Date().toISOString() }),
       });
 
       for (const variant of variants) {
@@ -311,7 +293,7 @@ export async function PUT(request: NextRequest) {
     );
 
     const variants_data = await fetchFromSupabase(
-      `/belarro_v4_product_variant?crop_id=eq.${id}&select=*&order=size_grams.asc`
+      `/belarro_v4_product_variant?crop_id=eq.${id}&deleted_at=is.null&select=*&order=size_grams.asc`
     );
 
     return NextResponse.json({
@@ -323,7 +305,7 @@ export async function PUT(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Crops API PUT error:', error);
+    await logError('PUT /api/crops', error, { status: 500 });
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
@@ -353,7 +335,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true, data: { id } });
   } catch (error) {
-    console.error('Crops API DELETE error:', error);
+    await logError('DELETE /api/crops', error, { status: 500 });
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }

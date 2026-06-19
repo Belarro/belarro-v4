@@ -18,10 +18,28 @@ interface Customer {
   created_at: string;
 }
 
+interface WebsiteLead {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  restaurant_name?: string;
+  message?: string;
+  source: string;
+  status: 'new' | 'contacted' | 'converted' | 'archived';
+  converted_customer_id?: string | null;
+  created_at: string;
+}
+
+type CustomerTab = 'prospect' | 'active' | 'paused' | 'inactive';
+type Tab = CustomerTab | 'leads';
+
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [leads, setLeads] = useState<WebsiteLead[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'prospect' | 'active' | 'paused' | 'inactive'>('prospect');
+  const [activeTab, setActiveTab] = useState<Tab>('prospect');
+  const [toast, setToast] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   
@@ -53,8 +71,47 @@ export default function CustomersPage() {
     }
   };
 
+  const fetchLeads = async () => {
+    try {
+      const res = await fetch('/api/website-leads');
+      const json = await res.json();
+      if (json.success) setLeads(json.data || []);
+    } catch (error) {
+      console.error('Failed to load website leads:', error);
+    }
+  };
+
+  const flash = (m: string) => { setToast(m); setTimeout(() => setToast(null), 3000); };
+
+  const convertLead = async (lead: WebsiteLead) => {
+    if (!confirm(`Convert "${lead.name}" into a customer?`)) return;
+    try {
+      const res = await fetch('/api/website-leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'convert', id: lead.id }),
+      });
+      const json = await res.json();
+      if (json.success) { flash('Lead converted to customer'); fetchLeads(); fetchCustomers(); }
+      else flash(`Error: ${json.error}`);
+    } catch (error) { console.error(error); }
+  };
+
+  const setLeadStatus = async (lead: WebsiteLead, status: WebsiteLead['status']) => {
+    try {
+      const res = await fetch('/api/website-leads', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: lead.id, status }),
+      });
+      const json = await res.json();
+      if (json.success) fetchLeads();
+    } catch (error) { console.error(error); }
+  };
+
   useEffect(() => {
     fetchCustomers();
+    fetchLeads();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -173,6 +230,8 @@ export default function CustomersPage() {
         </button>
       </div>
 
+      {toast && <div className="fixed top-6 right-6 z-50 bg-gray-900 text-white text-sm px-4 py-2.5 rounded-lg shadow-lg">{toast}</div>}
+
       {/* Tabs */}
       <div className="flex border-b border-gray-200">
         {(['prospect', 'active', 'paused', 'inactive'] as const).map(tab => (
@@ -180,18 +239,80 @@ export default function CustomersPage() {
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={`px-6 py-3 text-sm font-semibold border-b-2 capitalize transition ${
-              activeTab === tab 
-                ? 'border-green-600 text-green-700 font-bold' 
+              activeTab === tab
+                ? 'border-green-600 text-green-700 font-bold'
                 : 'border-transparent text-gray-500 hover:text-gray-900'
             }`}
           >
             {tab}s ({statusCounts[tab]})
           </button>
         ))}
+        <button
+          onClick={() => setActiveTab('leads')}
+          className={`px-6 py-3 text-sm font-semibold border-b-2 transition ${
+            activeTab === 'leads'
+              ? 'border-green-600 text-green-700 font-bold'
+              : 'border-transparent text-gray-500 hover:text-gray-900'
+          }`}
+        >
+          Website Leads ({leads.filter(l => l.status !== 'converted' && l.status !== 'archived').length})
+        </button>
       </div>
 
-      {/* Content */}
-      {loading ? (
+      {/* Website Leads tab */}
+      {activeTab === 'leads' ? (
+        leads.length === 0 ? (
+          <div className="bg-white rounded-xl border border-gray-200 p-12 text-center text-gray-500">
+            No website leads yet. Leads from the belarro.de contact form appear here.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {leads.map(lead => (
+              <div key={lead.id} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm flex flex-col justify-between">
+                <div>
+                  <div className="flex items-start justify-between">
+                    <h3 className="text-lg font-bold text-gray-900">{lead.name}</h3>
+                    <span className={`text-[10px] font-semibold px-2 py-1 rounded border capitalize ${
+                      lead.status === 'converted' ? 'bg-green-50 text-green-700 border-green-200'
+                      : lead.status === 'archived' ? 'bg-gray-100 text-gray-500 border-gray-200'
+                      : lead.status === 'contacted' ? 'bg-amber-50 text-amber-700 border-amber-200'
+                      : 'bg-blue-50 text-blue-700 border-blue-200'
+                    }`}>{lead.status}</span>
+                  </div>
+                  {lead.restaurant_name && <p className="text-xs text-gray-500 font-medium">{lead.restaurant_name}</p>}
+                  <div className="mt-4 pt-3 border-t border-gray-100 space-y-1.5 text-xs text-gray-500">
+                    {lead.email && <div className="truncate">📧 {lead.email}</div>}
+                    {lead.phone && <div>📞 {lead.phone}</div>}
+                    {lead.message && <div className="text-gray-600 italic mt-2">"{lead.message}"</div>}
+                  </div>
+                  <p className="mt-3 text-[10px] text-gray-400">Received: {new Date(lead.created_at).toLocaleDateString()} · via {lead.source}</p>
+                </div>
+                <div className="mt-4 grid grid-cols-3 gap-2">
+                  <button
+                    onClick={() => convertLead(lead)}
+                    disabled={lead.status === 'converted'}
+                    className="bg-green-50 hover:bg-green-100 disabled:opacity-40 text-green-700 py-1.5 rounded-lg border border-green-200 font-semibold text-xs"
+                  >
+                    {lead.status === 'converted' ? 'Converted' : 'Convert'}
+                  </button>
+                  <button
+                    onClick={() => setLeadStatus(lead, 'contacted')}
+                    className="bg-gray-50 hover:bg-gray-100 text-gray-700 py-1.5 rounded-lg border border-gray-200 font-semibold text-xs"
+                  >
+                    Contacted
+                  </button>
+                  <button
+                    onClick={() => setLeadStatus(lead, 'archived')}
+                    className="bg-gray-50 hover:bg-gray-100 text-gray-500 py-1.5 rounded-lg border border-gray-200 font-semibold text-xs"
+                  >
+                    Archive
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      ) : loading ? (
         <div className="flex items-center justify-center min-h-[300px]">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
         </div>

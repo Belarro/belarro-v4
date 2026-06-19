@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchFromSupabase } from '@/lib/supabase';
 import { requireAuth } from '@/lib/auth';
+import { logError } from '@/lib/logger';
 
 type Params = {
   params: Promise<{ id: string }>
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest, props: Params) {
 
     // Fetch variants
     const variants = await fetchFromSupabase(
-      `/belarro_v4_product_variant?crop_id=eq.${id}&select=*&order=size_grams.asc`
+      `/belarro_v4_product_variant?crop_id=eq.${id}&deleted_at=is.null&select=*&order=size_grams.asc`
     );
 
     return NextResponse.json({
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest, props: Params) {
       },
     });
   } catch (error) {
-    console.error('Crops API GET error:', error);
+    await logError('GET /api/crops/[id]', error, { status: 500 });
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
@@ -128,10 +129,13 @@ export async function PUT(request: NextRequest, props: Params) {
       }
     }
 
-    // Update variants (delete old, create new)
+    // Update variants (soft-delete old, create new).
+    // Data Protection Mandate: NEVER hard-delete. Mark live variants deleted_at
+    // = now() then insert the new set.
     if (variants && Array.isArray(variants)) {
-      await fetchFromSupabase(`/belarro_v4_product_variant?crop_id=eq.${id}`, {
-        method: 'DELETE',
+      await fetchFromSupabase(`/belarro_v4_product_variant?crop_id=eq.${id}&deleted_at=is.null`, {
+        method: 'PATCH',
+        body: JSON.stringify({ deleted_at: new Date().toISOString() }),
       });
 
       for (const variant of variants) {
@@ -161,7 +165,7 @@ export async function PUT(request: NextRequest, props: Params) {
     );
 
     const variants_data = await fetchFromSupabase(
-      `/belarro_v4_product_variant?crop_id=eq.${id}&select=*&order=size_grams.asc`
+      `/belarro_v4_product_variant?crop_id=eq.${id}&deleted_at=is.null&select=*&order=size_grams.asc`
     );
 
     return NextResponse.json({
@@ -173,7 +177,7 @@ export async function PUT(request: NextRequest, props: Params) {
       },
     });
   } catch (error) {
-    console.error('Crops API PUT error:', error);
+    await logError('PUT /api/crops/[id]', error, { status: 500 });
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
@@ -195,7 +199,7 @@ export async function DELETE(request: NextRequest, props: Params) {
 
     return NextResponse.json({ success: true, data: { id } });
   } catch (error) {
-    console.error('Crops API DELETE error:', error);
+    await logError('DELETE /api/crops/[id]', error, { status: 500 });
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }

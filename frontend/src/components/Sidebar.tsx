@@ -34,6 +34,7 @@ const sections = [
     items: [
       { label: 'Customers', href: '/admin/customers', icon: UsersIcon },
       { label: 'Orders', href: '/admin/orders', icon: ShoppingCartIcon },
+      { label: 'Standing Orders', href: '/admin/standing-orders', icon: ClipboardListIcon },
     ],
   },
   {

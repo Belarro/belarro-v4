@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchFromSupabase } from '@/lib/supabase';
 import { requireAuth } from '@/lib/auth';
+import { logError } from '@/lib/logger';
 
 type Params = {
   params: Promise<{ id: string }>
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest, props: Params) {
 
     const [visits, orders, followups] = await Promise.all([
       fetchFromSupabase(`/belarro_v4_visit?customer_id=eq.${id}&select=*&order=visit_date.desc`),
-      fetchFromSupabase(`/belarro_v4_order?customer_id=eq.${id}&select=*&order=created_at.desc`),
+      fetchFromSupabase(`/belarro_v4_order?customer_id=eq.${id}&deleted_at=is.null&select=*&order=created_at.desc`),
       fetchFromSupabase(`/belarro_v4_follow_up?customer_id=eq.${id}&select=*&order=due_date.asc`),
     ]);
 
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest, props: Params) {
       },
     });
   } catch (error) {
-    console.error('Customer GET error:', error);
+    await logError('GET /api/customers/[id]', error, { status: 500 });
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
@@ -66,7 +67,7 @@ export async function PUT(request: NextRequest, props: Params) {
       message: 'Customer updated successfully',
     });
   } catch (error) {
-    console.error('Customer PUT error:', error);
+    await logError('PUT /api/customers/[id]', error, { status: 500 });
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
@@ -80,9 +81,11 @@ export async function DELETE(request: NextRequest, props: Params) {
     if (!auth.ok) return auth.response;
     const { id } = await props.params;
 
-    // Delete customer (Supabase cascade constraints will delete follow-ups/visits/orders)
+    // Soft delete (Data Protection Mandate). Related rows are intentionally
+    // left intact so the customer can be restored; lists filter on deleted_at.
     await fetchFromSupabase(`/belarro_v4_customer?id=eq.${id}`, {
-      method: 'DELETE',
+      method: 'PATCH',
+      body: JSON.stringify({ deleted_at: new Date().toISOString() }),
     });
 
     return NextResponse.json({
@@ -90,7 +93,7 @@ export async function DELETE(request: NextRequest, props: Params) {
       message: 'Customer deleted successfully',
     });
   } catch (error) {
-    console.error('Customer DELETE error:', error);
+    await logError('DELETE /api/customers/[id]', error, { status: 500 });
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
