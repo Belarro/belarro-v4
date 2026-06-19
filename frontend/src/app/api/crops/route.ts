@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/auth';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://wbqzlxdyjdmbzifhsyil.supabase.co';
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -26,6 +27,8 @@ async function fetchFromSupabase(path: string, options: RequestInit = {}) {
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth.response;
     const { searchParams } = new URL(request.url);
     const cropId = searchParams.get('id');
 
@@ -84,8 +87,10 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth.response;
     const body = await request.json();
-    const { name_en, name_de, flavor_en, flavor_de, status, procedure, variants } = body;
+    const { name_en, name_de, flavor_en, flavor_de, status, image_url, procedure, variants } = body;
 
     if (!name_en || !name_de) {
       return NextResponse.json(
@@ -109,13 +114,14 @@ export async function POST(request: NextRequest) {
         flavor_en: flavor_en || null,
         flavor_de: flavor_de || null,
         status: status || 'active',
+        image_url: image_url || null,
       }),
     });
 
     const crop = crops[0];
 
     // Create growth procedure if provided
-    if (procedure && procedure.growth_env_days > 0) {
+    if (procedure) {
       await fetchFromSupabase('/belarro_v4_growth_procedure', {
         method: 'POST',
         body: JSON.stringify({
@@ -126,8 +132,15 @@ export async function POST(request: NextRequest) {
           cover_soil_enabled: procedure.cover_soil_enabled || false,
           stack_enabled: procedure.stack_enabled || false,
           stack_days: procedure.stack_days || null,
+          // New separate fields
+          blackout_enabled: procedure.blackout_enabled || false,
+          blackout_days: procedure.blackout_days || null,
+          humidity_dome_days: procedure.humidity_dome_days || null,
+          lights_enabled: procedure.lights_enabled !== false,
+          lights_days: procedure.lights_days || null,
+          // Legacy columns mapping
           growth_env_type: procedure.growth_env_type || 'light',
-          growth_env_days: procedure.growth_env_days || 0,
+          growth_env_days: procedure.lights_enabled ? (procedure.lights_days || 0) : (procedure.blackout_days || 0),
           humidity_dome_enabled: procedure.humidity_dome_enabled || false,
         }),
       });
@@ -188,8 +201,10 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth.response;
     const body = await request.json();
-    const { id, name_en, name_de, flavor_en, flavor_de, status, procedure, variants } = body;
+    const { id, name_en, name_de, flavor_en, flavor_de, status, image_url, procedure, variants } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -205,6 +220,7 @@ export async function PUT(request: NextRequest) {
     if (flavor_en !== undefined) updateData.flavor_en = flavor_en;
     if (flavor_de !== undefined) updateData.flavor_de = flavor_de;
     if (status) updateData.status = status;
+    if (image_url !== undefined) updateData.image_url = image_url;
 
     await fetchFromSupabase(`/belarro_v4_crop?id=eq.${id}`, {
       method: 'PATCH',
@@ -226,8 +242,15 @@ export async function PUT(request: NextRequest) {
             cover_soil_enabled: procedure.cover_soil_enabled || false,
             stack_enabled: procedure.stack_enabled || false,
             stack_days: procedure.stack_days || null,
+            // New separate fields
+            blackout_enabled: procedure.blackout_enabled || false,
+            blackout_days: procedure.blackout_days || null,
+            humidity_dome_days: procedure.humidity_dome_days || null,
+            lights_enabled: procedure.lights_enabled !== false,
+            lights_days: procedure.lights_days || null,
+            // Legacy columns mapping
             growth_env_type: procedure.growth_env_type || 'light',
-            growth_env_days: procedure.growth_env_days || 0,
+            growth_env_days: procedure.lights_enabled ? (procedure.lights_days || 0) : (procedure.blackout_days || 0),
             humidity_dome_enabled: procedure.humidity_dome_enabled || false,
           }),
         });
@@ -241,8 +264,15 @@ export async function PUT(request: NextRequest) {
             cover_soil_enabled: procedure.cover_soil_enabled || false,
             stack_enabled: procedure.stack_enabled || false,
             stack_days: procedure.stack_days || null,
+            // New separate fields
+            blackout_enabled: procedure.blackout_enabled || false,
+            blackout_days: procedure.blackout_days || null,
+            humidity_dome_days: procedure.humidity_dome_days || null,
+            lights_enabled: procedure.lights_enabled !== false,
+            lights_days: procedure.lights_days || null,
+            // Legacy columns mapping
             growth_env_type: procedure.growth_env_type || 'light',
-            growth_env_days: procedure.growth_env_days || 0,
+            growth_env_days: procedure.lights_enabled ? (procedure.lights_days || 0) : (procedure.blackout_days || 0),
             humidity_dome_enabled: procedure.humidity_dome_enabled || false,
           }),
         });
@@ -303,6 +333,8 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth.response;
     const body = await request.json();
     const { id } = body;
 

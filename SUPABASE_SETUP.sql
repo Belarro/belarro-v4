@@ -14,6 +14,7 @@ CREATE TABLE belarro_v4_crop (
   flavor_en TEXT,
   flavor_de TEXT,
   status TEXT DEFAULT 'active' CHECK (status IN ('active', 'paused')),
+  image_url TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
   deleted_at TIMESTAMP WITH TIME ZONE

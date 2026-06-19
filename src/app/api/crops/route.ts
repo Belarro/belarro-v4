@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://wbqzlxdyjdmbzifhsyil.supabase.co';
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
+const isValidUUID = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
 async function fetchFromSupabase(path: string, options: RequestInit = {}) {
   const url = `${SUPABASE_URL}/rest/v1${path}`;
   const response = await fetch(url, {
@@ -30,6 +32,13 @@ export async function GET(request: NextRequest) {
     const cropId = searchParams.get('id');
 
     if (cropId) {
+      if (!isValidUUID(cropId)) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid crop ID' },
+          { status: 400 }
+        );
+      }
+
       // Fetch single crop with relations
       const crop = await fetchFromSupabase(
         `/belarro_v4_crop?id=eq.${cropId}&select=*`
@@ -69,9 +78,26 @@ export async function GET(request: NextRequest) {
       `/belarro_v4_crop?deleted_at=is.null&select=*&order=created_at.desc`
     );
 
+    // Fetch procedures and variants for each crop
+    const cropsWithRelations = await Promise.all(
+      (crops || []).map(async (crop) => {
+        const procedure = await fetchFromSupabase(
+          `/belarro_v4_growth_procedure?crop_id=eq.${crop.id}&select=*`
+        );
+        const variants = await fetchFromSupabase(
+          `/belarro_v4_product_variant?crop_id=eq.${crop.id}&select=*&order=size_grams.asc`
+        );
+        return {
+          ...crop,
+          procedure: procedure[0] || null,
+          variants: variants || [],
+        };
+      })
+    );
+
     return NextResponse.json({
       success: true,
-      data: crops || [],
+      data: cropsWithRelations || [],
     });
   } catch (error) {
     console.error('Crops API GET error:', error);
@@ -85,7 +111,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name_en, name_de, flavor_en, flavor_de, status, procedure, variants } = body;
+    const { name_en, name_de, flavor_en, flavor_de, status, photo_url, procedure, variants } = body;
 
     if (!name_en || !name_de) {
       return NextResponse.json(
@@ -109,13 +135,14 @@ export async function POST(request: NextRequest) {
         flavor_en: flavor_en || null,
         flavor_de: flavor_de || null,
         status: status || 'active',
+        photo_url: photo_url || null,
       }),
     });
 
     const crop = crops[0];
 
     // Create growth procedure if provided
-    if (procedure && procedure.growth_env_days > 0) {
+    if (procedure) {
       await fetchFromSupabase('/belarro_v4_growth_procedure', {
         method: 'POST',
         body: JSON.stringify({
@@ -126,9 +153,12 @@ export async function POST(request: NextRequest) {
           cover_soil_enabled: procedure.cover_soil_enabled || false,
           stack_enabled: procedure.stack_enabled || false,
           stack_days: procedure.stack_days || null,
-          growth_env_type: procedure.growth_env_type || 'light',
-          growth_env_days: procedure.growth_env_days || 0,
+          light_enabled: procedure.light_enabled || false,
+          light_days: procedure.light_days || null,
+          blackout_enabled: procedure.blackout_enabled || false,
+          blackout_days: procedure.blackout_days || null,
           humidity_dome_enabled: procedure.humidity_dome_enabled || false,
+          humidity_dome_days: procedure.humidity_dome_days || null,
         }),
       });
     }
@@ -189,7 +219,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, name_en, name_de, flavor_en, flavor_de, status, procedure, variants } = body;
+    const { id, name_en, name_de, flavor_en, flavor_de, status, photo_url, procedure, variants } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -205,6 +235,7 @@ export async function PUT(request: NextRequest) {
     if (flavor_en !== undefined) updateData.flavor_en = flavor_en;
     if (flavor_de !== undefined) updateData.flavor_de = flavor_de;
     if (status) updateData.status = status;
+    if (photo_url !== undefined) updateData.photo_url = photo_url;
 
     await fetchFromSupabase(`/belarro_v4_crop?id=eq.${id}`, {
       method: 'PATCH',
@@ -223,27 +254,46 @@ export async function PUT(request: NextRequest) {
           body: JSON.stringify({
             soak_enabled: procedure.soak_enabled || false,
             soak_hours: procedure.soak_hours || null,
+            soak_notes: procedure.soak_notes || null,
             cover_soil_enabled: procedure.cover_soil_enabled || false,
+            cover_soil_notes: procedure.cover_soil_notes || null,
             stack_enabled: procedure.stack_enabled || false,
             stack_days: procedure.stack_days || null,
-            growth_env_type: procedure.growth_env_type || 'light',
-            growth_env_days: procedure.growth_env_days || 0,
+            stack_notes: procedure.stack_notes || null,
+            light_enabled: procedure.light_enabled || false,
+            light_days: procedure.light_days || null,
+            light_notes: procedure.light_notes || null,
+            blackout_enabled: procedure.blackout_enabled || false,
+            blackout_days: procedure.blackout_days || null,
+            blackout_notes: procedure.blackout_notes || null,
             humidity_dome_enabled: procedure.humidity_dome_enabled || false,
+            humidity_dome_days: procedure.humidity_dome_days || null,
+            humidity_dome_notes: procedure.humidity_dome_notes || null,
           }),
         });
       } else {
         await fetchFromSupabase('/belarro_v4_growth_procedure', {
           method: 'POST',
           body: JSON.stringify({
+            id: crypto.randomUUID(),
             crop_id: id,
             soak_enabled: procedure.soak_enabled || false,
             soak_hours: procedure.soak_hours || null,
+            soak_notes: procedure.soak_notes || null,
             cover_soil_enabled: procedure.cover_soil_enabled || false,
+            cover_soil_notes: procedure.cover_soil_notes || null,
             stack_enabled: procedure.stack_enabled || false,
             stack_days: procedure.stack_days || null,
-            growth_env_type: procedure.growth_env_type || 'light',
-            growth_env_days: procedure.growth_env_days || 0,
+            stack_notes: procedure.stack_notes || null,
+            light_enabled: procedure.light_enabled || false,
+            light_days: procedure.light_days || null,
+            light_notes: procedure.light_notes || null,
+            blackout_enabled: procedure.blackout_enabled || false,
+            blackout_days: procedure.blackout_days || null,
+            blackout_notes: procedure.blackout_notes || null,
             humidity_dome_enabled: procedure.humidity_dome_enabled || false,
+            humidity_dome_days: procedure.humidity_dome_days || null,
+            humidity_dome_notes: procedure.humidity_dome_notes || null,
           }),
         });
       }
@@ -256,13 +306,14 @@ export async function PUT(request: NextRequest) {
       });
 
       for (const variant of variants) {
-        if (variant.size_name && variant.size_grams) {
+        if (variant.size_name) {
           await fetchFromSupabase('/belarro_v4_product_variant', {
             method: 'POST',
             body: JSON.stringify({
+              id: crypto.randomUUID(),
               crop_id: id,
               size_name: variant.size_name,
-              size_grams: variant.size_grams,
+              size_grams: variant.size_grams || 0,
               price_eur: variant.price_eur || null,
               is_internal: variant.is_internal || false,
             }),
@@ -301,30 +352,3 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-export async function DELETE(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { id } = body;
-
-    if (!id) {
-      return NextResponse.json(
-        { success: false, error: 'id is required' },
-        { status: 400 }
-      );
-    }
-
-    // Soft delete
-    await fetchFromSupabase(`/belarro_v4_crop?id=eq.${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ deleted_at: new Date().toISOString() }),
-    });
-
-    return NextResponse.json({ success: true, data: { id } });
-  } catch (error) {
-    console.error('Crops API DELETE error:', error);
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Unknown error' },
-      { status: 500 }
-    );
-  }
-}

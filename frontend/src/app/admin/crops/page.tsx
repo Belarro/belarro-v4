@@ -10,9 +10,14 @@ interface GrowthProcedure {
   cover_soil_enabled: boolean;
   stack_enabled: boolean;
   stack_days?: number;
-  growth_env_type: 'light' | 'blackout' | 'humidity_dome';
-  growth_env_days: number;
+  growth_env_type?: 'light' | 'blackout' | 'humidity_dome';
+  growth_env_days?: number;
   humidity_dome_enabled: boolean;
+  blackout_enabled?: boolean;
+  blackout_days?: number;
+  humidity_dome_days?: number;
+  lights_enabled?: boolean;
+  lights_days?: number;
   created_at?: string;
   updated_at?: string;
 }
@@ -35,6 +40,7 @@ interface Crop {
   flavor_en?: string;
   flavor_de?: string;
   status: 'active' | 'paused';
+  image_url?: string | null;
   procedure?: GrowthProcedure;
   variants?: ProductVariant[];
   created_at?: string;
@@ -65,6 +71,7 @@ export default function AdminCropsPage() {
     flavor_en: '',
     flavor_de: '',
     status: 'active' as 'active' | 'paused',
+    image_url: '',
   });
 
   const [procedure, setProcedure] = useState<GrowthProcedure>({
@@ -76,6 +83,11 @@ export default function AdminCropsPage() {
     growth_env_type: 'light',
     growth_env_days: 0,
     humidity_dome_enabled: false,
+    blackout_enabled: false,
+    blackout_days: undefined,
+    humidity_dome_days: undefined,
+    lights_enabled: true,
+    lights_days: undefined,
   });
 
   const [variants, setVariants] = useState<ProductVariant[]>([]);
@@ -123,8 +135,17 @@ export default function AdminCropsPage() {
           flavor_en: crop.flavor_en || '',
           flavor_de: crop.flavor_de || '',
           status: crop.status || 'active',
+          image_url: crop.image_url || '',
         });
-        setProcedure(crop.procedure || {
+        setProcedure(crop.procedure ? {
+          ...crop.procedure,
+          soak_enabled: crop.procedure.soak_enabled || false,
+          cover_soil_enabled: crop.procedure.cover_soil_enabled || false,
+          stack_enabled: crop.procedure.stack_enabled || false,
+          humidity_dome_enabled: crop.procedure.humidity_dome_enabled || false,
+          blackout_enabled: crop.procedure.blackout_enabled || false,
+          lights_enabled: crop.procedure.lights_enabled !== false,
+        } : {
           soak_enabled: false,
           soak_hours: undefined,
           cover_soil_enabled: false,
@@ -133,6 +154,11 @@ export default function AdminCropsPage() {
           growth_env_type: 'light',
           growth_env_days: 0,
           humidity_dome_enabled: false,
+          blackout_enabled: false,
+          blackout_days: undefined,
+          humidity_dome_days: undefined,
+          lights_enabled: true,
+          lights_days: undefined,
         });
         setVariants(crop.variants || []);
       }
@@ -160,7 +186,7 @@ export default function AdminCropsPage() {
       return;
     }
 
-    if (procedure.growth_env_days <= 0) {
+    if (!procedure.growth_env_days || procedure.growth_env_days <= 0) {
       showToast('Growth environment days must be greater than 0', 'error');
       return;
     }
@@ -184,6 +210,7 @@ export default function AdminCropsPage() {
         flavor_en: formData.flavor_en || null,
         flavor_de: formData.flavor_de || null,
         status: formData.status,
+        image_url: formData.image_url || null,
         procedure,
         variants: variants.filter(v => v.size_name && v.size_grams),
       };
@@ -247,7 +274,7 @@ export default function AdminCropsPage() {
     setSelectedCropId(null);
     setIsEditing(true);
     setActiveTab('basics');
-    setFormData({ name_en: '', name_de: '', flavor_en: '', flavor_de: '', status: 'active' });
+    setFormData({ name_en: '', name_de: '', flavor_en: '', flavor_de: '', status: 'active', image_url: '' });
     setProcedure({
       soak_enabled: false,
       soak_hours: undefined,
@@ -257,6 +284,11 @@ export default function AdminCropsPage() {
       growth_env_type: 'light',
       growth_env_days: 0,
       humidity_dome_enabled: false,
+      blackout_enabled: false,
+      blackout_days: undefined,
+      humidity_dome_days: undefined,
+      lights_enabled: true,
+      lights_days: undefined,
     });
     setVariants([]);
   };
@@ -287,8 +319,13 @@ export default function AdminCropsPage() {
     if (procedure.stack_enabled && procedure.stack_days) {
       days += procedure.stack_days;
     }
-    if (procedure.growth_env_days) {
-      days += procedure.growth_env_days;
+    const lightsDays = procedure.lights_enabled ? (procedure.lights_days || 0) : 0;
+    if (lightsDays > 0) {
+      days += lightsDays;
+    } else if (procedure.blackout_enabled && procedure.blackout_days) {
+      days += procedure.blackout_days;
+    } else {
+      days += procedure.growth_env_days || 0;
     }
     return days;
   };
@@ -349,9 +386,24 @@ export default function AdminCropsPage() {
                   }`}
                 >
                   <div className="flex justify-between items-start gap-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900">{crop.name_en}</p>
-                      <p className="text-xs text-gray-600">{crop.name_de}</p>
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      {crop.image_url ? (
+                        <img
+                          src={crop.image_url}
+                          alt={crop.name_en}
+                          className="w-10 h-10 object-cover rounded-md flex-shrink-0"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 bg-gray-100 flex items-center justify-center rounded-md flex-shrink-0 text-gray-400">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 truncate">{crop.name_en}</p>
+                        <p className="text-xs text-gray-600 truncate">{crop.name_de}</p>
+                      </div>
                     </div>
                     <span
                       className={`px-2 py-1 rounded text-xs font-medium flex-shrink-0 ${
@@ -473,6 +525,85 @@ export default function AdminCropsPage() {
                       <option value="paused">Paused</option>
                     </select>
                   </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-900 mb-2">Crop Photo</label>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-4">
+                        {formData.image_url ? (
+                          <div className="relative w-20 h-20 border border-gray-300 rounded-lg overflow-hidden bg-gray-50 flex-shrink-0">
+                            <img src={formData.image_url} alt="Crop" className="w-full h-full object-cover" />
+                            {isEditing && (
+                              <button
+                                type="button"
+                                onClick={() => setFormData({ ...formData, image_url: '' })}
+                                className="absolute top-0 right-0 bg-red-600 hover:bg-red-700 text-white p-1 rounded-bl-lg transition"
+                                title="Remove image"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50 text-gray-400 flex-shrink-0">
+                            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                          </div>
+                        )}
+                        {isEditing && (
+                          <div className="flex flex-col gap-1">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+
+                                try {
+                                  showToast('Uploading image...', 'success');
+                                  const uploadData = new FormData();
+                                  uploadData.append('file', file);
+
+                                  const uploadRes = await fetch('/api/upload', {
+                                    method: 'POST',
+                                    body: uploadData,
+                                  });
+
+                                  const json = await uploadRes.json();
+                                  if (json.success) {
+                                    setFormData(prev => ({ ...prev, image_url: json.data.url }));
+                                    showToast('Image uploaded successfully', 'success');
+                                  } else {
+                                    showToast(json.error || 'Upload failed', 'error');
+                                  }
+                                } catch (err) {
+                                  console.error('Upload error:', err);
+                                  showToast('Error uploading image', 'error');
+                                }
+                              }}
+                              className="text-sm text-gray-500 file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100 cursor-pointer"
+                            />
+                            <p className="text-xs text-gray-500">Max size: 5MB (PNG, JPG, GIF)</p>
+                          </div>
+                        )}
+                      </div>
+                      {isEditing && (
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Or paste image URL:</label>
+                          <input
+                            type="text"
+                            value={formData.image_url}
+                            onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                            className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                            placeholder="https://example.com/image.png"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -572,54 +703,115 @@ export default function AdminCropsPage() {
                     )}
                   </div>
 
-                  {/* Growth Environment */}
+                  {/* Blackout Stage */}
                   <div className="border border-gray-200 rounded-lg p-4">
-                    <label className="block text-sm font-medium text-gray-900 mb-3">Growth Environment</label>
-                    <div className="mb-3">
-                      <select
-                        value={procedure.growth_env_type}
-                        onChange={(e) => setProcedure({ ...procedure, growth_env_type: e.target.value as 'light' | 'blackout' | 'humidity_dome' })}
-                        disabled={!isEditing}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg disabled:bg-gray-100 disabled:text-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500"
-                      >
-                        <option value="light">💡 Light</option>
-                        <option value="blackout">🌑 Blackout</option>
-                        <option value="humidity_dome">💨 Humidity Dome</option>
-                      </select>
-                    </div>
-
-                    <div className="mb-3">
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Duration (Days) *</label>
+                    <label className="flex items-center gap-3 cursor-pointer mb-3">
                       <input
-                        type="number"
-                        min="1"
-                        placeholder="Days"
-                        value={procedure.growth_env_days || ''}
-                        onChange={(e) => setProcedure({ ...procedure, growth_env_days: e.target.value ? parseInt(e.target.value) : 0 })}
+                        type="checkbox"
+                        checked={procedure.blackout_enabled || false}
+                        onChange={(e) => setProcedure({ 
+                          ...procedure, 
+                          blackout_enabled: e.target.checked,
+                          blackout_days: e.target.checked ? (procedure.blackout_days || 3) : undefined 
+                        })}
                         disabled={!isEditing}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg disabled:bg-gray-100 disabled:text-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500"
+                        className="w-4 h-4"
                       />
-                    </div>
-
-                    {procedure.growth_env_type === 'light' && isEditing && (
-                      <label className="flex items-center gap-2 cursor-pointer">
+                      <span className="text-lg">🌑</span>
+                      <span className="font-semibold text-gray-900 flex-1">Blackout Stage</span>
+                    </label>
+                    {procedure.blackout_enabled && isEditing && (
+                      <div className="ml-7">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Duration (Days)</label>
                         <input
-                          type="checkbox"
-                          checked={procedure.humidity_dome_enabled}
-                          onChange={(e) => setProcedure({ ...procedure, humidity_dome_enabled: e.target.checked })}
-                          className="w-4 h-4"
+                          type="number"
+                          min="1"
+                          placeholder="Days"
+                          value={procedure.blackout_days || ''}
+                          onChange={(e) => setProcedure({ ...procedure, blackout_days: e.target.value ? parseInt(e.target.value) : undefined })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                         />
-                        <span className="text-sm text-gray-700">Also use humidity dome (concurrent, same duration)</span>
-                      </label>
-                    )}
-
-                    {!isEditing && (
-                      <div className="text-sm text-gray-700">
-                        <p><strong>{procedure.growth_env_type}</strong> for {procedure.growth_env_days} days</p>
-                        {procedure.growth_env_type === 'light' && procedure.humidity_dome_enabled && (
-                          <p className="text-xs text-gray-600 mt-1">+ Humidity dome (concurrent)</p>
-                        )}
+                        <p className="text-xs text-gray-500 mt-1">
+                          {procedure.lights_enabled ? "Concurrent/included in lights duration (not added to total)." : "Calculated in total since lights are disabled."}
+                        </p>
                       </div>
+                    )}
+                    {procedure.blackout_enabled && !isEditing && (
+                      <p className="ml-7 text-sm text-gray-700">
+                        {procedure.blackout_days} days ({procedure.lights_enabled ? "concurrent" : "adds to total growth"})
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Humidity Dome Stage */}
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <label className="flex items-center gap-3 cursor-pointer mb-3">
+                      <input
+                        type="checkbox"
+                        checked={procedure.humidity_dome_enabled || false}
+                        onChange={(e) => setProcedure({ 
+                          ...procedure, 
+                          humidity_dome_enabled: e.target.checked,
+                          humidity_dome_days: e.target.checked ? (procedure.humidity_dome_days || 3) : undefined 
+                        })}
+                        disabled={!isEditing}
+                        className="w-4 h-4"
+                      />
+                      <span className="text-lg">💨</span>
+                      <span className="font-semibold text-gray-900 flex-1">Humidity Dome</span>
+                    </label>
+                    {procedure.humidity_dome_enabled && isEditing && (
+                      <div className="ml-7">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Duration (Days)</label>
+                        <input
+                          type="number"
+                          min="1"
+                          placeholder="Days"
+                          value={procedure.humidity_dome_days || ''}
+                          onChange={(e) => setProcedure({ ...procedure, humidity_dome_days: e.target.value ? parseInt(e.target.value) : undefined })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Concurrent with other stages (not calculated in total days).</p>
+                      </div>
+                    )}
+                    {procedure.humidity_dome_enabled && !isEditing && (
+                      <p className="ml-7 text-sm text-gray-700">{procedure.humidity_dome_days} days (concurrent)</p>
+                    )}
+                  </div>
+
+                  {/* Lights Stage */}
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <label className="flex items-center gap-3 cursor-pointer mb-3">
+                      <input
+                        type="checkbox"
+                        checked={procedure.lights_enabled !== false}
+                        onChange={(e) => setProcedure({ 
+                          ...procedure, 
+                          lights_enabled: e.target.checked,
+                          lights_days: e.target.checked ? (procedure.lights_days || 7) : undefined 
+                        })}
+                        disabled={!isEditing}
+                        className="w-4 h-4"
+                      />
+                      <span className="text-lg">💡</span>
+                      <span className="font-semibold text-gray-900 flex-1">Lights Stage</span>
+                    </label>
+                    {(procedure.lights_enabled !== false) && isEditing && (
+                      <div className="ml-7">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Duration (Days)</label>
+                        <input
+                          type="number"
+                          min="1"
+                          placeholder="Days"
+                          value={procedure.lights_days || ''}
+                          onChange={(e) => setProcedure({ ...procedure, lights_days: e.target.value ? parseInt(e.target.value) : undefined })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Main lights growth stage. Calculated in total growth days.</p>
+                      </div>
+                    )}
+                    {(procedure.lights_enabled !== false) && !isEditing && (
+                      <p className="ml-7 text-sm text-gray-700">{procedure.lights_days} days (adds to total growth)</p>
                     )}
                   </div>
 
