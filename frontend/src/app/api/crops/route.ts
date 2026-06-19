@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
     // Generate UUIDs for all records
     const cropId = crypto.randomUUID();
     const procedureId = procedure ? crypto.randomUUID() : null;
-    const variantIds = variants ? variants.map(() => crypto.randomUUID()) : [];
+    const variantIds: string[] = variants ? variants.map(() => crypto.randomUUID()) : [];
 
     // Create crop
     const crops = await fetchFromSupabase('/belarro_v4_crop', {
