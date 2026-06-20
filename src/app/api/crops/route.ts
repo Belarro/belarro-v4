@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch procedures and variants for each crop
     const cropsWithRelations = await Promise.all(
-      (crops || []).map(async (crop) => {
+      (crops || []).map(async (crop: any) => {
         const procedure = await fetchFromSupabase(
           `/belarro_v4_growth_procedure?crop_id=eq.${crop.id}&select=*`
         );
