@@ -16,10 +16,9 @@ function requireEnv(name: string): string {
   return value;
 }
 
-const SUPABASE_URL = requireEnv('NEXT_PUBLIC_SUPABASE_URL');
-const SUPABASE_SERVICE_ROLE_KEY = requireEnv('SUPABASE_SERVICE_ROLE_KEY');
-
 export async function fetchFromSupabase(path: string, options: RequestInit = {}) {
+  const SUPABASE_URL = requireEnv('NEXT_PUBLIC_SUPABASE_URL');
+  const SUPABASE_SERVICE_ROLE_KEY = requireEnv('SUPABASE_SERVICE_ROLE_KEY');
   const url = `${SUPABASE_URL}/rest/v1${path}`;
   const response = await fetch(url, {
     ...options,
