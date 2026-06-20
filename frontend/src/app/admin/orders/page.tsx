@@ -135,28 +135,46 @@ export default function OrdersPage() {
   };
 
   const handleSaveEdit = async () => {
-    if (!editGroup) return;
-    for (const line of editGroup.lines) {
-      const newQty = parseFloat(editQty[line.id]);
-      if (newQty && newQty !== line.quantity) {
-        await fetch(`/api/orders/${line.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ quantity: newQty }),
-        });
+    if (!editGroup || submitting) return;
+    setSubmitting(true);
+    try {
+      for (const line of editGroup.lines) {
+        const newQty = parseFloat(editQty[line.id]);
+        if (newQty && newQty !== line.quantity) {
+          await fetch(`/api/orders/${line.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ quantity: newQty }),
+          });
+        }
       }
+    } finally {
+      setSubmitting(false);
+      setEditGroup(null);
+      await fetchOrders();
     }
-    setEditGroup(null);
-    fetchOrders();
   };
 
   const handleDeleteLine = async (id: string) => {
     if (!confirm('Remove this crop from the order?')) return;
     await fetch(`/api/orders/${id}`, { method: 'DELETE' });
-    if (editGroup) {
-      setEditGroup({ ...editGroup, lines: editGroup.lines.filter(l => l.id !== id) });
+    const res = await fetch('/api/orders');
+    const json = await res.json();
+    if (json.success) {
+      const fresh: OrderLine[] = json.data || [];
+      setOrders(fresh);
+      if (editGroup) {
+        const updatedLines = fresh.filter(o => o.customer_id === editGroup.customer.id);
+        if (updatedLines.length === 0) {
+          setEditGroup(null);
+        } else {
+          setEditGroup({ ...editGroup, lines: updatedLines });
+          const qtyMap: Record<string, string> = {};
+          updatedLines.forEach(l => { qtyMap[l.id] = String(l.quantity); });
+          setEditQty(qtyMap);
+        }
+      }
     }
-    fetchOrders();
   };
 
   return (
