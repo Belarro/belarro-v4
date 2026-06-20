@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
     const auth = await requireAuth();
     if (!auth.ok) return auth.response;
     const body = await request.json();
-    const { name_en, name_de, flavor_en, flavor_de, status, image_url, procedure, variants } = body;
+    const { name_en, name_de, flavor_en, flavor_de, status, photo_url, procedure, variants } = body;
 
     if (!name_en || !name_de) {
       return NextResponse.json(
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
         flavor_en: flavor_en || null,
         flavor_de: flavor_de || null,
         status: status || 'active',
-        image_url: image_url || null,
+        photo_url: photo_url || null,
       }),
     });
 
@@ -114,11 +114,8 @@ export async function POST(request: NextRequest) {
           blackout_enabled: procedure.blackout_enabled || false,
           blackout_days: procedure.blackout_days || null,
           humidity_dome_days: procedure.humidity_dome_days || null,
-          lights_enabled: procedure.lights_enabled !== false,
-          lights_days: procedure.lights_days || null,
-          // Legacy columns mapping
-          growth_env_type: procedure.growth_env_type || 'light',
-          growth_env_days: procedure.lights_enabled ? (procedure.lights_days || 0) : (procedure.blackout_days || 0),
+          light_enabled: procedure.light_enabled !== false,
+          light_days: procedure.light_days || null,
           humidity_dome_enabled: procedure.humidity_dome_enabled || false,
         }),
       });
@@ -182,7 +179,7 @@ export async function PUT(request: NextRequest) {
     const auth = await requireAuth();
     if (!auth.ok) return auth.response;
     const body = await request.json();
-    const { id, name_en, name_de, flavor_en, flavor_de, status, image_url, procedure, variants } = body;
+    const { id, name_en, name_de, flavor_en, flavor_de, status, photo_url, procedure, variants } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -198,7 +195,7 @@ export async function PUT(request: NextRequest) {
     if (flavor_en !== undefined) updateData.flavor_en = flavor_en;
     if (flavor_de !== undefined) updateData.flavor_de = flavor_de;
     if (status) updateData.status = status;
-    if (image_url !== undefined) updateData.image_url = image_url;
+    if (photo_url !== undefined) updateData.photo_url = photo_url;
 
     await fetchFromSupabase(`/belarro_v4_crop?id=eq.${id}`, {
       method: 'PATCH',
@@ -220,16 +217,12 @@ export async function PUT(request: NextRequest) {
             cover_soil_enabled: procedure.cover_soil_enabled || false,
             stack_enabled: procedure.stack_enabled || false,
             stack_days: procedure.stack_days || null,
-            // New separate fields
             blackout_enabled: procedure.blackout_enabled || false,
             blackout_days: procedure.blackout_days || null,
-            humidity_dome_days: procedure.humidity_dome_days || null,
-            lights_enabled: procedure.lights_enabled !== false,
-            lights_days: procedure.lights_days || null,
-            // Legacy columns mapping
-            growth_env_type: procedure.growth_env_type || 'light',
-            growth_env_days: procedure.lights_enabled ? (procedure.lights_days || 0) : (procedure.blackout_days || 0),
             humidity_dome_enabled: procedure.humidity_dome_enabled || false,
+            humidity_dome_days: procedure.humidity_dome_days || null,
+            light_enabled: procedure.light_enabled !== false,
+            light_days: procedure.light_days || null,
           }),
         });
       } else {
@@ -242,16 +235,12 @@ export async function PUT(request: NextRequest) {
             cover_soil_enabled: procedure.cover_soil_enabled || false,
             stack_enabled: procedure.stack_enabled || false,
             stack_days: procedure.stack_days || null,
-            // New separate fields
             blackout_enabled: procedure.blackout_enabled || false,
             blackout_days: procedure.blackout_days || null,
-            humidity_dome_days: procedure.humidity_dome_days || null,
-            lights_enabled: procedure.lights_enabled !== false,
-            lights_days: procedure.lights_days || null,
-            // Legacy columns mapping
-            growth_env_type: procedure.growth_env_type || 'light',
-            growth_env_days: procedure.lights_enabled ? (procedure.lights_days || 0) : (procedure.blackout_days || 0),
             humidity_dome_enabled: procedure.humidity_dome_enabled || false,
+            humidity_dome_days: procedure.humidity_dome_days || null,
+            light_enabled: procedure.light_enabled !== false,
+            light_days: procedure.light_days || null,
           }),
         });
       }

@@ -23,10 +23,8 @@ const sections = [
   {
     title: 'Production',
     items: [
-      { label: 'Crop Configuration', href: '/admin/crop-configuration', icon: LeafIcon },
-      { label: 'Crops', href: '/admin/crops', icon: LeafIcon },
-      { label: 'Grow Procedure', href: '/admin/grow-procedure', icon: SparklesIcon },
-      { label: 'Sizes & Prices', href: '/admin/sizes-prices', icon: BoxIcon },
+      { label: 'Crop Configuration', href: '/admin/crops', icon: LeafIcon },
+      { label: 'Overview', href: '/admin', icon: LeafIcon },
     ],
   },
   {

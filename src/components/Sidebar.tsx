@@ -2,39 +2,75 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
+import {
+  DashboardIcon,
+  LeafIcon,
+  UsersIcon,
+  ShoppingCartIcon,
+  BoxIcon,
+  ClipboardListIcon,
+  PhoneIcon,
+  SparklesIcon,
+} from './Icons';
 
 const sections = [
   {
     title: null,
-    items: [{ label: 'Dashboard', href: '/admin', icon: '📊' }],
+    items: [{ label: 'Dashboard', href: '/admin', icon: DashboardIcon }],
   },
   {
-    title: 'PRODUCTION',
+    title: 'Production',
     items: [
-      { label: 'Crop Configuration', href: '/admin/crops', icon: '🌱' },
-      { label: 'Overview', href: '/admin/crops-overview', icon: '📋' },
+      { label: 'Crop Configuration', href: '/admin/crops', icon: LeafIcon },
+      { label: 'Overview', href: '/admin', icon: LeafIcon },
+    ],
+  },
+  {
+    title: 'Sales',
+    items: [
+      { label: 'Customers', href: '/admin/customers', icon: UsersIcon },
+      { label: 'Orders', href: '/admin/orders', icon: ShoppingCartIcon },
+      { label: 'Standing Orders', href: '/admin/standing-orders', icon: ClipboardListIcon },
+    ],
+  },
+  {
+    title: 'Operations',
+    items: [
+      { label: 'Inventory', href: '/admin/inventory', icon: BoxIcon },
+      { label: 'Invoices', href: '/admin/invoices', icon: ClipboardListIcon },
+      { label: 'Follow-ups', href: '/admin/follow-ups', icon: PhoneIcon },
+      { label: 'Seeding', href: '/admin/seeding', icon: SparklesIcon },
     ],
   },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  async function handleLogout() {
+    const supabase = createSupabaseBrowserClient();
+    await supabase.auth.signOut();
+    router.refresh();
+    router.replace('/login');
+  }
 
   return (
     <aside className="w-64 bg-white border-r border-gray-200 flex flex-col h-screen sticky top-0">
-      {/* Brand */}
+      {/* Brand logo */}
       <div className="p-6 border-b border-gray-200 flex items-center gap-3">
-        <div className="w-8 h-8 rounded bg-green-600 flex items-center justify-center text-white font-bold text-lg">
+        <div className="w-8 h-8 rounded-lg bg-green-600 flex items-center justify-center text-white font-bold text-lg">
           B
         </div>
         <div>
-          <h1 className="font-bold text-gray-900 text-lg">Belarro</h1>
+          <h1 className="font-bold text-gray-900 text-lg leading-tight">Belarro</h1>
           <p className="text-xs text-gray-500 font-medium">Farm Management</p>
         </div>
       </div>
 
-      {/* Nav */}
+      {/* Nav items */}
       <nav className="flex-1 p-4 space-y-6 overflow-y-auto">
         {sections.map((section, idx) => (
           <div key={idx} className="space-y-1">
@@ -44,21 +80,27 @@ export default function Sidebar() {
               </h3>
             )}
             {section.items.map((item) => {
-              const isActive = item.href === '/admin'
-                ? pathname === '/admin'
+              const IconComponent = item.icon;
+              // Strict match for dashboard, prefix match for others to keep active state
+              const isActive = item.href === '/admin' 
+                ? pathname === '/admin' 
                 : pathname.startsWith(item.href);
-
+              
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-lg transition ${
+                  className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 group ${
                     isActive
                       ? 'bg-green-50 text-green-700 font-semibold'
-                      : 'text-gray-600 hover:bg-gray-50'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                   }`}
                 >
-                  <span>{item.icon}</span>
+                  <IconComponent 
+                    className={`w-5 h-5 transition-colors ${
+                      isActive ? 'text-green-600' : 'text-gray-400 group-hover:text-gray-600'
+                    }`} 
+                  />
                   <span className="text-sm">{item.label}</span>
                 </Link>
               );
@@ -68,8 +110,14 @@ export default function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-gray-100 bg-gray-50 text-center">
-        <p className="text-[11px] text-gray-400 font-medium">Belarro V4 Admin</p>
+      <div className="p-4 border-t border-gray-100 bg-gray-50 space-y-2">
+        <button
+          onClick={handleLogout}
+          className="w-full rounded-lg px-3 py-2 text-sm font-semibold text-gray-600 hover:bg-red-50 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-red-400 transition flex items-center justify-center gap-2"
+        >
+          Sign out
+        </button>
+        <p className="text-[11px] text-gray-400 font-medium text-center">Belarro V4 Admin</p>
       </div>
     </aside>
   );

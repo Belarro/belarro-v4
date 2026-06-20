@@ -10,14 +10,12 @@ interface GrowthProcedure {
   cover_soil_enabled: boolean;
   stack_enabled: boolean;
   stack_days?: number;
-  growth_env_type?: 'light' | 'blackout' | 'humidity_dome';
-  growth_env_days?: number;
   humidity_dome_enabled: boolean;
   blackout_enabled?: boolean;
   blackout_days?: number;
   humidity_dome_days?: number;
-  lights_enabled?: boolean;
-  lights_days?: number;
+  light_enabled?: boolean;
+  light_days?: number;
   created_at?: string;
   updated_at?: string;
 }
@@ -40,7 +38,7 @@ interface Crop {
   flavor_en?: string;
   flavor_de?: string;
   status: 'active' | 'paused';
-  image_url?: string | null;
+  photo_url?: string | null;
   procedure?: GrowthProcedure;
   variants?: ProductVariant[];
   created_at?: string;
@@ -71,7 +69,7 @@ export default function AdminCropsPage() {
     flavor_en: '',
     flavor_de: '',
     status: 'active' as 'active' | 'paused',
-    image_url: '',
+    photo_url: '',
   });
 
   const [procedure, setProcedure] = useState<GrowthProcedure>({
@@ -80,14 +78,12 @@ export default function AdminCropsPage() {
     cover_soil_enabled: false,
     stack_enabled: false,
     stack_days: undefined,
-    growth_env_type: 'light',
-    growth_env_days: 0,
     humidity_dome_enabled: false,
     blackout_enabled: false,
     blackout_days: undefined,
     humidity_dome_days: undefined,
-    lights_enabled: true,
-    lights_days: undefined,
+    light_enabled: true,
+    light_days: undefined,
   });
 
   const [variants, setVariants] = useState<ProductVariant[]>([]);
@@ -135,30 +131,32 @@ export default function AdminCropsPage() {
           flavor_en: crop.flavor_en || '',
           flavor_de: crop.flavor_de || '',
           status: crop.status || 'active',
-          image_url: crop.image_url || '',
+          photo_url: crop.photo_url || '',
         });
         setProcedure(crop.procedure ? {
-          ...crop.procedure,
           soak_enabled: crop.procedure.soak_enabled || false,
+          soak_hours: crop.procedure.soak_hours || undefined,
           cover_soil_enabled: crop.procedure.cover_soil_enabled || false,
           stack_enabled: crop.procedure.stack_enabled || false,
+          stack_days: crop.procedure.stack_days || undefined,
           humidity_dome_enabled: crop.procedure.humidity_dome_enabled || false,
+          humidity_dome_days: crop.procedure.humidity_dome_days || undefined,
           blackout_enabled: crop.procedure.blackout_enabled || false,
-          lights_enabled: crop.procedure.lights_enabled !== false,
+          blackout_days: crop.procedure.blackout_days || undefined,
+          light_enabled: crop.procedure.light_enabled !== false,
+          light_days: crop.procedure.light_days || undefined,
         } : {
           soak_enabled: false,
           soak_hours: undefined,
           cover_soil_enabled: false,
           stack_enabled: false,
           stack_days: undefined,
-          growth_env_type: 'light',
-          growth_env_days: 0,
           humidity_dome_enabled: false,
           blackout_enabled: false,
           blackout_days: undefined,
           humidity_dome_days: undefined,
-          lights_enabled: true,
-          lights_days: undefined,
+          light_enabled: true,
+          light_days: undefined,
         });
         setVariants(crop.variants || []);
       }
@@ -186,11 +184,6 @@ export default function AdminCropsPage() {
       return;
     }
 
-    if (!procedure.growth_env_days || procedure.growth_env_days <= 0) {
-      showToast('Growth environment days must be greater than 0', 'error');
-      return;
-    }
-
     if (procedure.soak_enabled && !procedure.soak_hours) {
       showToast('Soak hours required if soak is enabled', 'error');
       return;
@@ -210,7 +203,7 @@ export default function AdminCropsPage() {
         flavor_en: formData.flavor_en || null,
         flavor_de: formData.flavor_de || null,
         status: formData.status,
-        image_url: formData.image_url || null,
+        photo_url: formData.photo_url || null,
         procedure,
         variants: variants.filter(v => v.size_name && v.size_grams),
       };
@@ -274,21 +267,19 @@ export default function AdminCropsPage() {
     setSelectedCropId(null);
     setIsEditing(true);
     setActiveTab('basics');
-    setFormData({ name_en: '', name_de: '', flavor_en: '', flavor_de: '', status: 'active', image_url: '' });
+    setFormData({ name_en: '', name_de: '', flavor_en: '', flavor_de: '', status: 'active', photo_url: '' });
     setProcedure({
       soak_enabled: false,
       soak_hours: undefined,
       cover_soil_enabled: false,
       stack_enabled: false,
       stack_days: undefined,
-      growth_env_type: 'light',
-      growth_env_days: 0,
       humidity_dome_enabled: false,
       blackout_enabled: false,
       blackout_days: undefined,
       humidity_dome_days: undefined,
-      lights_enabled: true,
-      lights_days: undefined,
+      light_enabled: true,
+      light_days: undefined,
     });
     setVariants([]);
   };
@@ -319,13 +310,11 @@ export default function AdminCropsPage() {
     if (procedure.stack_enabled && procedure.stack_days) {
       days += procedure.stack_days;
     }
-    const lightsDays = procedure.lights_enabled ? (procedure.lights_days || 0) : 0;
-    if (lightsDays > 0) {
-      days += lightsDays;
-    } else if (procedure.blackout_enabled && procedure.blackout_days) {
+    if (procedure.light_enabled && procedure.light_days) {
+      days += procedure.light_days;
+    }
+    if (procedure.blackout_enabled && procedure.blackout_days) {
       days += procedure.blackout_days;
-    } else {
-      days += procedure.growth_env_days || 0;
     }
     return days;
   };
@@ -387,9 +376,9 @@ export default function AdminCropsPage() {
                 >
                   <div className="flex justify-between items-start gap-2">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
-                      {crop.image_url ? (
+                      {crop.photo_url ? (
                         <img
-                          src={crop.image_url}
+                          src={crop.photo_url}
                           alt={crop.name_en}
                           className="w-10 h-10 object-cover rounded-md flex-shrink-0"
                         />
@@ -530,13 +519,13 @@ export default function AdminCropsPage() {
                     <label className="block text-sm font-medium text-gray-900 mb-2">Crop Photo</label>
                     <div className="space-y-3">
                       <div className="flex items-center gap-4">
-                        {formData.image_url ? (
+                        {formData.photo_url ? (
                           <div className="relative w-20 h-20 border border-gray-300 rounded-lg overflow-hidden bg-gray-50 flex-shrink-0">
-                            <img src={formData.image_url} alt="Crop" className="w-full h-full object-cover" />
+                            <img src={formData.photo_url} alt="Crop" className="w-full h-full object-cover" />
                             {isEditing && (
                               <button
                                 type="button"
-                                onClick={() => setFormData({ ...formData, image_url: '' })}
+                                onClick={() => setFormData({ ...formData, photo_url: '' })}
                                 className="absolute top-0 right-0 bg-red-600 hover:bg-red-700 text-white p-1 rounded-bl-lg transition"
                                 title="Remove image"
                               >
@@ -574,7 +563,7 @@ export default function AdminCropsPage() {
 
                                   const json = await uploadRes.json();
                                   if (json.success) {
-                                    setFormData(prev => ({ ...prev, image_url: json.data.url }));
+                                    setFormData(prev => ({ ...prev, photo_url: json.data.url }));
                                     showToast('Image uploaded successfully', 'success');
                                   } else {
                                     showToast(json.error || 'Upload failed', 'error');
@@ -595,8 +584,8 @@ export default function AdminCropsPage() {
                           <label className="block text-xs font-medium text-gray-500 mb-1">Or paste image URL:</label>
                           <input
                             type="text"
-                            value={formData.image_url}
-                            onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                            value={formData.photo_url}
+                            onChange={(e) => setFormData({ ...formData, photo_url: e.target.value })}
                             className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                             placeholder="https://example.com/image.png"
                           />
@@ -732,13 +721,13 @@ export default function AdminCropsPage() {
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                         />
                         <p className="text-xs text-gray-500 mt-1">
-                          {procedure.lights_enabled ? "Concurrent/included in lights duration (not added to total)." : "Calculated in total since lights are disabled."}
+                          {procedure.light_enabled ? "Concurrent/included in lights duration (not added to total)." : "Calculated in total since lights are disabled."}
                         </p>
                       </div>
                     )}
                     {procedure.blackout_enabled && !isEditing && (
                       <p className="ml-7 text-sm text-gray-700">
-                        {procedure.blackout_days} days ({procedure.lights_enabled ? "concurrent" : "adds to total growth"})
+                        {procedure.blackout_days} days ({procedure.light_enabled ? "concurrent" : "adds to total growth"})
                       </p>
                     )}
                   </div>
@@ -784,11 +773,11 @@ export default function AdminCropsPage() {
                     <label className="flex items-center gap-3 cursor-pointer mb-3">
                       <input
                         type="checkbox"
-                        checked={procedure.lights_enabled !== false}
+                        checked={procedure.light_enabled !== false}
                         onChange={(e) => setProcedure({ 
                           ...procedure, 
-                          lights_enabled: e.target.checked,
-                          lights_days: e.target.checked ? (procedure.lights_days || 7) : undefined 
+                          light_enabled: e.target.checked,
+                          light_days: e.target.checked ? (procedure.light_days || 7) : undefined 
                         })}
                         disabled={!isEditing}
                         className="w-4 h-4"
@@ -796,22 +785,22 @@ export default function AdminCropsPage() {
                       <span className="text-lg">💡</span>
                       <span className="font-semibold text-gray-900 flex-1">Lights Stage</span>
                     </label>
-                    {(procedure.lights_enabled !== false) && isEditing && (
+                    {(procedure.light_enabled !== false) && isEditing && (
                       <div className="ml-7">
                         <label className="block text-xs font-medium text-gray-700 mb-1">Duration (Days)</label>
                         <input
                           type="number"
                           min="1"
                           placeholder="Days"
-                          value={procedure.lights_days || ''}
-                          onChange={(e) => setProcedure({ ...procedure, lights_days: e.target.value ? parseInt(e.target.value) : undefined })}
+                          value={procedure.light_days || ''}
+                          onChange={(e) => setProcedure({ ...procedure, light_days: e.target.value ? parseInt(e.target.value) : undefined })}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                         />
                         <p className="text-xs text-gray-500 mt-1">Main lights growth stage. Calculated in total growth days.</p>
                       </div>
                     )}
-                    {(procedure.lights_enabled !== false) && !isEditing && (
-                      <p className="ml-7 text-sm text-gray-700">{procedure.lights_days} days (adds to total growth)</p>
+                    {(procedure.light_enabled !== false) && !isEditing && (
+                      <p className="ml-7 text-sm text-gray-700">{procedure.light_days} days (adds to total growth)</p>
                     )}
                   </div>
 
