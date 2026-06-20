@@ -23,27 +23,8 @@ const sections = [
   {
     title: 'Production',
     items: [
-      { label: 'Crop Configuration', href: '/admin/crop-configuration', icon: LeafIcon },
-      { label: 'Crops', href: '/admin/crops', icon: LeafIcon },
-      { label: 'Grow Procedure', href: '/admin/grow-procedure', icon: SparklesIcon },
-      { label: 'Sizes & Prices', href: '/admin/sizes-prices', icon: BoxIcon },
-    ],
-  },
-  {
-    title: 'Sales',
-    items: [
-      { label: 'Customers', href: '/admin/customers', icon: UsersIcon },
-      { label: 'Orders', href: '/admin/orders', icon: ShoppingCartIcon },
-      { label: 'Standing Orders', href: '/admin/standing-orders', icon: ClipboardListIcon },
-    ],
-  },
-  {
-    title: 'Operations',
-    items: [
-      { label: 'Inventory', href: '/admin/inventory', icon: BoxIcon },
-      { label: 'Invoices', href: '/admin/invoices', icon: ClipboardListIcon },
-      { label: 'Follow-ups', href: '/admin/follow-ups', icon: PhoneIcon },
-      { label: 'Seeding', href: '/admin/seeding', icon: SparklesIcon },
+      { label: 'Crop Configuration', href: '/admin/crops', icon: LeafIcon },
+      { label: 'Overview', href: '/admin', icon: DashboardIcon },
     ],
   },
 ];
