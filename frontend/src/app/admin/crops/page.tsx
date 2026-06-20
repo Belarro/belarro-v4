@@ -121,10 +121,13 @@ export default function AdminCropsPage() {
 
   const loadCropData = async (cropId: string) => {
     try {
+      console.log('Loading crop:', cropId);
       const res = await fetch(`/api/crops?id=${cropId}`);
       const json = await res.json();
+      console.log('API response:', json);
       if (json.success && json.data) {
         const crop = json.data;
+        console.log('Crop data:', crop);
         setFormData({
           name_en: crop.name_en || '',
           name_de: crop.name_de || '',
