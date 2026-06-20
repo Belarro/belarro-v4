@@ -385,20 +385,20 @@ export default function CustomersPage() {
       {/* Modal Dialog */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden border border-gray-200 animate-in fade-in zoom-in-95 duration-150">
-            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg flex flex-col max-h-[90vh] border border-gray-200 animate-in fade-in zoom-in-95 duration-150">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
               <h2 className="text-xl font-bold text-gray-900">
                 {editingCustomer ? 'Edit Customer Account' : 'Register New Customer'}
               </h2>
-              <button 
+              <button
                 onClick={() => setShowModal(false)}
                 className="text-gray-400 hover:text-gray-600 font-bold text-lg"
               >
                 ✕
               </button>
             </div>
-            
-            <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto">
+
+            <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 mb-1">Company/Client Name</label>
