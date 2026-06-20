@@ -217,16 +217,12 @@ export async function PUT(request: NextRequest) {
             cover_soil_enabled: procedure.cover_soil_enabled || false,
             stack_enabled: procedure.stack_enabled || false,
             stack_days: procedure.stack_days || null,
-            // New separate fields
             blackout_enabled: procedure.blackout_enabled || false,
             blackout_days: procedure.blackout_days || null,
-            humidity_dome_days: procedure.humidity_dome_days || null,
-            lights_enabled: procedure.lights_enabled !== false,
-            lights_days: procedure.lights_days || null,
-            // Legacy columns mapping
-            growth_env_type: procedure.growth_env_type || 'light',
-            growth_env_days: procedure.lights_enabled ? (procedure.lights_days || 0) : (procedure.blackout_days || 0),
             humidity_dome_enabled: procedure.humidity_dome_enabled || false,
+            humidity_dome_days: procedure.humidity_dome_days || null,
+            light_enabled: procedure.light_enabled !== false,
+            light_days: procedure.light_days || null,
           }),
         });
       } else {
@@ -239,16 +235,12 @@ export async function PUT(request: NextRequest) {
             cover_soil_enabled: procedure.cover_soil_enabled || false,
             stack_enabled: procedure.stack_enabled || false,
             stack_days: procedure.stack_days || null,
-            // New separate fields
             blackout_enabled: procedure.blackout_enabled || false,
             blackout_days: procedure.blackout_days || null,
-            humidity_dome_days: procedure.humidity_dome_days || null,
-            lights_enabled: procedure.lights_enabled !== false,
-            lights_days: procedure.lights_days || null,
-            // Legacy columns mapping
-            growth_env_type: procedure.growth_env_type || 'light',
-            growth_env_days: procedure.lights_enabled ? (procedure.lights_days || 0) : (procedure.blackout_days || 0),
             humidity_dome_enabled: procedure.humidity_dome_enabled || false,
+            humidity_dome_days: procedure.humidity_dome_days || null,
+            light_enabled: procedure.light_enabled !== false,
+            light_days: procedure.light_days || null,
           }),
         });
       }
