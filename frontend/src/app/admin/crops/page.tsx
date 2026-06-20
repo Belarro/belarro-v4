@@ -114,7 +114,6 @@ export default function AdminCropsPage() {
 
   // Load selected crop
   useEffect(() => {
-    console.log('useEffect triggered: selectedCropId=', selectedCropId, 'isNewCrop=', isNewCrop);
     if (selectedCropId && !isNewCrop) {
       loadCropData(selectedCropId);
     }
@@ -122,13 +121,10 @@ export default function AdminCropsPage() {
 
   const loadCropData = async (cropId: string) => {
     try {
-      console.log('Loading crop:', cropId);
       const res = await fetch(`/api/crops?id=${cropId}`);
       const json = await res.json();
-      console.log('API response:', json);
       if (json.success && json.data) {
         const crop = json.data;
-        console.log('Crop data:', crop);
         setFormData({
           name_en: crop.name_en || '',
           name_de: crop.name_de || '',
@@ -137,19 +133,18 @@ export default function AdminCropsPage() {
           status: crop.status || 'active',
           photo_url: crop.photo_url || '',
         });
-        const procState = crop.procedure ? {
-          ...crop.procedure,
+        setProcedure(crop.procedure ? {
           soak_enabled: crop.procedure.soak_enabled || false,
-          soak_hours: crop.procedure.soak_hours ?? undefined,
+          soak_hours: crop.procedure.soak_hours || undefined,
           cover_soil_enabled: crop.procedure.cover_soil_enabled || false,
           stack_enabled: crop.procedure.stack_enabled || false,
-          stack_days: crop.procedure.stack_days ?? undefined,
+          stack_days: crop.procedure.stack_days || undefined,
           humidity_dome_enabled: crop.procedure.humidity_dome_enabled || false,
-          humidity_dome_days: crop.procedure.humidity_dome_days ?? undefined,
+          humidity_dome_days: crop.procedure.humidity_dome_days || undefined,
           blackout_enabled: crop.procedure.blackout_enabled || false,
-          blackout_days: crop.procedure.blackout_days ?? undefined,
+          blackout_days: crop.procedure.blackout_days || undefined,
           light_enabled: crop.procedure.light_enabled !== false,
-          light_days: crop.procedure.light_days ?? undefined,
+          light_days: crop.procedure.light_days || undefined,
         } : {
           soak_enabled: false,
           soak_hours: undefined,
@@ -162,9 +157,7 @@ export default function AdminCropsPage() {
           humidity_dome_days: undefined,
           light_enabled: true,
           light_days: undefined,
-        };
-        console.log('Setting procedure state:', procState);
-        setProcedure(procState);
+        });
         setVariants(crop.variants || []);
       }
     } catch (error) {
