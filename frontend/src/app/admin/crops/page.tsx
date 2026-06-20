@@ -133,7 +133,7 @@ export default function AdminCropsPage() {
           status: crop.status || 'active',
           photo_url: crop.photo_url || '',
         });
-        setProcedure(crop.procedure ? {
+        const procState = crop.procedure ? {
           ...crop.procedure,
           soak_enabled: crop.procedure.soak_enabled || false,
           soak_hours: crop.procedure.soak_hours ?? undefined,
@@ -158,7 +158,9 @@ export default function AdminCropsPage() {
           humidity_dome_days: undefined,
           light_enabled: true,
           light_days: undefined,
-        });
+        };
+        console.log('Setting procedure state:', procState);
+        setProcedure(procState);
         setVariants(crop.variants || []);
       }
     } catch (error) {
