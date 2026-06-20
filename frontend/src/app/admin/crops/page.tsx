@@ -310,12 +310,11 @@ export default function AdminCropsPage() {
     if (procedure.stack_enabled && procedure.stack_days) {
       days += procedure.stack_days;
     }
-    const lightsDays = procedure.light_enabled ? (procedure.light_days || 0) : 0;
-    if (lightsDays > 0) {
-      days += lightsDays;
-    } else if (procedure.blackout_enabled && procedure.blackout_days) {
+    if (procedure.light_enabled && procedure.light_days) {
+      days += procedure.light_days;
+    }
+    if (procedure.blackout_enabled && procedure.blackout_days) {
       days += procedure.blackout_days;
-    } else {
     }
     return days;
   };
