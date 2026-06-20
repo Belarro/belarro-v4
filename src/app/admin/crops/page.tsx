@@ -154,7 +154,25 @@ export default function AdminCropsPage() {
         });
         setPhotoPreview(crop.photo_url || '');
         setPhotoFile(null);
-        setProcedure(crop.procedure || {
+        setProcedure(crop.procedure ? {
+          soak_enabled: crop.procedure.soak_enabled || false,
+          soak_hours: crop.procedure.soak_hours || undefined,
+          soak_notes: crop.procedure.soak_notes || undefined,
+          cover_soil_enabled: crop.procedure.cover_soil_enabled || false,
+          cover_soil_notes: crop.procedure.cover_soil_notes || undefined,
+          stack_enabled: crop.procedure.stack_enabled || false,
+          stack_days: crop.procedure.stack_days || undefined,
+          stack_notes: crop.procedure.stack_notes || undefined,
+          light_enabled: crop.procedure.light_enabled !== false,
+          light_days: crop.procedure.light_days || undefined,
+          light_notes: crop.procedure.light_notes || undefined,
+          blackout_enabled: crop.procedure.blackout_enabled || false,
+          blackout_days: crop.procedure.blackout_days || undefined,
+          blackout_notes: crop.procedure.blackout_notes || undefined,
+          humidity_dome_enabled: crop.procedure.humidity_dome_enabled || false,
+          humidity_dome_days: crop.procedure.humidity_dome_days || undefined,
+          humidity_dome_notes: crop.procedure.humidity_dome_notes || undefined,
+        } : {
           soak_enabled: false,
           soak_hours: undefined,
           cover_soil_enabled: false,
