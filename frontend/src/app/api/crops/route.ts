@@ -45,14 +45,20 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Fetch all crops
-    const crops = await fetchFromSupabase(
-      `/belarro_v4_crop?deleted_at=is.null&select=*&order=created_at.desc`
-    );
+    // Fetch all crops with their variants
+    const [crops, variants] = await Promise.all([
+      fetchFromSupabase(`/belarro_v4_crop?deleted_at=is.null&select=*&order=created_at.desc`),
+      fetchFromSupabase(`/belarro_v4_product_variant?deleted_at=is.null&select=*`),
+    ]);
+
+    const cropsWithVariants = (crops || []).map((crop: Record<string, unknown>) => ({
+      ...crop,
+      variants: (variants || []).filter((v: Record<string, unknown>) => v.crop_id === crop.id),
+    }));
 
     return NextResponse.json({
       success: true,
-      data: crops || [],
+      data: cropsWithVariants,
     });
   } catch (error) {
     await logError('GET /api/crops', error, { status: 500 });

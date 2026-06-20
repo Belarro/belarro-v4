@@ -237,7 +237,7 @@ export default function CustomersPage() {
 
       {/* Tabs */}
       <div className="flex border-b border-gray-200">
-        {(['prospect', 'active', 'paused', 'inactive'] as const).map(tab => (
+        {(['active', 'prospect', 'paused', 'inactive'] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
