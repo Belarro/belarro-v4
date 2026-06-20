@@ -78,8 +78,6 @@ export default function AdminCropsPage() {
     cover_soil_enabled: false,
     stack_enabled: false,
     stack_days: undefined,
-    growth_env_type: 'light',
-    growth_env_days: 0,
     humidity_dome_enabled: false,
     blackout_enabled: false,
     blackout_days: undefined,
