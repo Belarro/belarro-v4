@@ -1,44 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://wbqzlxdyjdmbzifhsyil.supabase.co';
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-
-const isValidUUID = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-
-async function fetchFromSupabase(path: string, options: RequestInit = {}) {
-  const url = `${SUPABASE_URL}/rest/v1${path}`;
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      'apikey': SUPABASE_SERVICE_ROLE_KEY,
-      'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-      'Content-Type': 'application/json',
-      'Prefer': 'return=representation',
-      ...options.headers,
-    },
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Supabase error: ${response.status} - ${error}`);
-  }
-
-  return response.json();
-}
+import { requireAuth } from '@/lib/auth';
+import { fetchFromSupabase } from '@/lib/supabase';
+import { logError } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth.response;
     const { searchParams } = new URL(request.url);
     const cropId = searchParams.get('id');
 
     if (cropId) {
-      if (!isValidUUID(cropId)) {
-        return NextResponse.json(
-          { success: false, error: 'Invalid crop ID' },
-          { status: 400 }
-        );
-      }
-
       // Fetch single crop with relations
       const crop = await fetchFromSupabase(
         `/belarro_v4_crop?id=eq.${cropId}&select=*`
@@ -60,7 +32,7 @@ export async function GET(request: NextRequest) {
 
       // Fetch variants
       const variants = await fetchFromSupabase(
-        `/belarro_v4_product_variant?crop_id=eq.${cropId}&select=*&order=size_grams.asc`
+        `/belarro_v4_product_variant?crop_id=eq.${cropId}&deleted_at=is.null&select=*&order=size_grams.asc`
       );
 
       return NextResponse.json({
@@ -78,29 +50,12 @@ export async function GET(request: NextRequest) {
       `/belarro_v4_crop?deleted_at=is.null&select=*&order=created_at.desc`
     );
 
-    // Fetch procedures and variants for each crop
-    const cropsWithRelations = await Promise.all(
-      (crops || []).map(async (crop: any) => {
-        const procedure = await fetchFromSupabase(
-          `/belarro_v4_growth_procedure?crop_id=eq.${crop.id}&select=*`
-        );
-        const variants = await fetchFromSupabase(
-          `/belarro_v4_product_variant?crop_id=eq.${crop.id}&select=*&order=size_grams.asc`
-        );
-        return {
-          ...crop,
-          procedure: procedure[0] || null,
-          variants: variants || [],
-        };
-      })
-    );
-
     return NextResponse.json({
       success: true,
-      data: cropsWithRelations || [],
+      data: crops || [],
     });
   } catch (error) {
-    console.error('Crops API GET error:', error);
+    await logError('GET /api/crops', error, { status: 500 });
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
@@ -110,6 +65,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth.response;
     const body = await request.json();
     const { name_en, name_de, flavor_en, flavor_de, status, photo_url, procedure, variants } = body;
 
@@ -123,7 +80,7 @@ export async function POST(request: NextRequest) {
     // Generate UUIDs for all records
     const cropId = crypto.randomUUID();
     const procedureId = procedure ? crypto.randomUUID() : null;
-    const variantIds = variants ? variants.map(() => crypto.randomUUID()) : [];
+    const variantIds: string[] = variants ? variants.map(() => crypto.randomUUID()) : [];
 
     // Create crop
     const crops = await fetchFromSupabase('/belarro_v4_crop', {
@@ -153,12 +110,13 @@ export async function POST(request: NextRequest) {
           cover_soil_enabled: procedure.cover_soil_enabled || false,
           stack_enabled: procedure.stack_enabled || false,
           stack_days: procedure.stack_days || null,
-          light_enabled: procedure.light_enabled || false,
-          light_days: procedure.light_days || null,
+          // New separate fields
           blackout_enabled: procedure.blackout_enabled || false,
           blackout_days: procedure.blackout_days || null,
-          humidity_dome_enabled: procedure.humidity_dome_enabled || false,
           humidity_dome_days: procedure.humidity_dome_days || null,
+          light_enabled: procedure.light_enabled !== false,
+          light_days: procedure.light_days || null,
+          humidity_dome_enabled: procedure.humidity_dome_enabled || false,
         }),
       });
     }
@@ -193,7 +151,7 @@ export async function POST(request: NextRequest) {
     );
 
     const variants_data = await fetchFromSupabase(
-      `/belarro_v4_product_variant?crop_id=eq.${cropId}&select=*&order=size_grams.asc`
+      `/belarro_v4_product_variant?crop_id=eq.${cropId}&deleted_at=is.null&select=*&order=size_grams.asc`
     );
 
     return NextResponse.json(
@@ -208,7 +166,7 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    console.error('Crops API POST error:', error);
+    await logError('POST /api/crops', error, { status: 500 });
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
@@ -218,6 +176,8 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth.response;
     const body = await request.json();
     const { id, name_en, name_de, flavor_en, flavor_de, status, photo_url, procedure, variants } = body;
 
@@ -254,66 +214,56 @@ export async function PUT(request: NextRequest) {
           body: JSON.stringify({
             soak_enabled: procedure.soak_enabled || false,
             soak_hours: procedure.soak_hours || null,
-            soak_notes: procedure.soak_notes || null,
             cover_soil_enabled: procedure.cover_soil_enabled || false,
-            cover_soil_notes: procedure.cover_soil_notes || null,
             stack_enabled: procedure.stack_enabled || false,
             stack_days: procedure.stack_days || null,
-            stack_notes: procedure.stack_notes || null,
-            light_enabled: procedure.light_enabled || false,
-            light_days: procedure.light_days || null,
-            light_notes: procedure.light_notes || null,
             blackout_enabled: procedure.blackout_enabled || false,
             blackout_days: procedure.blackout_days || null,
-            blackout_notes: procedure.blackout_notes || null,
             humidity_dome_enabled: procedure.humidity_dome_enabled || false,
             humidity_dome_days: procedure.humidity_dome_days || null,
-            humidity_dome_notes: procedure.humidity_dome_notes || null,
+            light_enabled: procedure.light_enabled !== false,
+            light_days: procedure.light_days || null,
           }),
         });
       } else {
         await fetchFromSupabase('/belarro_v4_growth_procedure', {
           method: 'POST',
           body: JSON.stringify({
-            id: crypto.randomUUID(),
             crop_id: id,
             soak_enabled: procedure.soak_enabled || false,
             soak_hours: procedure.soak_hours || null,
-            soak_notes: procedure.soak_notes || null,
             cover_soil_enabled: procedure.cover_soil_enabled || false,
-            cover_soil_notes: procedure.cover_soil_notes || null,
             stack_enabled: procedure.stack_enabled || false,
             stack_days: procedure.stack_days || null,
-            stack_notes: procedure.stack_notes || null,
-            light_enabled: procedure.light_enabled || false,
-            light_days: procedure.light_days || null,
-            light_notes: procedure.light_notes || null,
             blackout_enabled: procedure.blackout_enabled || false,
             blackout_days: procedure.blackout_days || null,
-            blackout_notes: procedure.blackout_notes || null,
             humidity_dome_enabled: procedure.humidity_dome_enabled || false,
             humidity_dome_days: procedure.humidity_dome_days || null,
-            humidity_dome_notes: procedure.humidity_dome_notes || null,
+            light_enabled: procedure.light_enabled !== false,
+            light_days: procedure.light_days || null,
           }),
         });
       }
     }
 
-    // Update variants (delete old, create new)
+    // Update variants (soft-delete old, create new).
+    // Data Protection Mandate: NEVER hard-delete. We mark existing live variants
+    // as deleted_at = now() and insert the new set. History is preserved and the
+    // no-hard-delete DB trigger is respected.
     if (variants && Array.isArray(variants)) {
-      await fetchFromSupabase(`/belarro_v4_product_variant?crop_id=eq.${id}`, {
-        method: 'DELETE',
+      await fetchFromSupabase(`/belarro_v4_product_variant?crop_id=eq.${id}&deleted_at=is.null`, {
+        method: 'PATCH',
+        body: JSON.stringify({ deleted_at: new Date().toISOString() }),
       });
 
       for (const variant of variants) {
-        if (variant.size_name) {
+        if (variant.size_name && variant.size_grams) {
           await fetchFromSupabase('/belarro_v4_product_variant', {
             method: 'POST',
             body: JSON.stringify({
-              id: crypto.randomUUID(),
               crop_id: id,
               size_name: variant.size_name,
-              size_grams: variant.size_grams || 0,
+              size_grams: variant.size_grams,
               price_eur: variant.price_eur || null,
               is_internal: variant.is_internal || false,
             }),
@@ -332,7 +282,7 @@ export async function PUT(request: NextRequest) {
     );
 
     const variants_data = await fetchFromSupabase(
-      `/belarro_v4_product_variant?crop_id=eq.${id}&select=*&order=size_grams.asc`
+      `/belarro_v4_product_variant?crop_id=eq.${id}&deleted_at=is.null&select=*&order=size_grams.asc`
     );
 
     return NextResponse.json({
@@ -344,7 +294,7 @@ export async function PUT(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Crops API PUT error:', error);
+    await logError('PUT /api/crops', error, { status: 500 });
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
@@ -352,3 +302,32 @@ export async function PUT(request: NextRequest) {
   }
 }
 
+export async function DELETE(request: NextRequest) {
+  try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth.response;
+    const body = await request.json();
+    const { id } = body;
+
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: 'id is required' },
+        { status: 400 }
+      );
+    }
+
+    // Soft delete
+    await fetchFromSupabase(`/belarro_v4_crop?id=eq.${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ deleted_at: new Date().toISOString() }),
+    });
+
+    return NextResponse.json({ success: true, data: { id } });
+  } catch (error) {
+    await logError('DELETE /api/crops', error, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    );
+  }
+}
