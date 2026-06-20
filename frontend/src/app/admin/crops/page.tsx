@@ -136,11 +136,16 @@ export default function AdminCropsPage() {
         setProcedure(crop.procedure ? {
           ...crop.procedure,
           soak_enabled: crop.procedure.soak_enabled || false,
+          soak_hours: crop.procedure.soak_hours ?? undefined,
           cover_soil_enabled: crop.procedure.cover_soil_enabled || false,
           stack_enabled: crop.procedure.stack_enabled || false,
+          stack_days: crop.procedure.stack_days ?? undefined,
           humidity_dome_enabled: crop.procedure.humidity_dome_enabled || false,
+          humidity_dome_days: crop.procedure.humidity_dome_days ?? undefined,
           blackout_enabled: crop.procedure.blackout_enabled || false,
+          blackout_days: crop.procedure.blackout_days ?? undefined,
           light_enabled: crop.procedure.light_enabled !== false,
+          light_days: crop.procedure.light_days ?? undefined,
         } : {
           soak_enabled: false,
           soak_hours: undefined,
