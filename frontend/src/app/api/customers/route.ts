@@ -9,9 +9,9 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
 
-    let path = '/belarro_v4_customer?select=*&order=created_at.desc';
+    let path = '/belarro_v4_customer?deleted_at=is.null&select=*&order=created_at.desc';
     if (status) {
-      path = `/belarro_v4_customer?status=eq.${status}&select=*&order=created_at.desc`;
+      path = `/belarro_v4_customer?deleted_at=is.null&status=eq.${status}&select=*&order=created_at.desc`;
     }
 
     try {
