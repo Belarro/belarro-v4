@@ -40,7 +40,7 @@ interface Crop {
   flavor_en?: string;
   flavor_de?: string;
   status: 'active' | 'paused';
-  image_url?: string | null;
+  photo_url?: string | null;
   procedure?: GrowthProcedure;
   variants?: ProductVariant[];
   created_at?: string;
@@ -71,7 +71,7 @@ export default function AdminCropsPage() {
     flavor_en: '',
     flavor_de: '',
     status: 'active' as 'active' | 'paused',
-    image_url: '',
+    photo_url: '',
   });
 
   const [procedure, setProcedure] = useState<GrowthProcedure>({
@@ -135,7 +135,7 @@ export default function AdminCropsPage() {
           flavor_en: crop.flavor_en || '',
           flavor_de: crop.flavor_de || '',
           status: crop.status || 'active',
-          image_url: crop.image_url || '',
+          photo_url: crop.photo_url || '',
         });
         setProcedure(crop.procedure ? {
           ...crop.procedure,
@@ -210,7 +210,7 @@ export default function AdminCropsPage() {
         flavor_en: formData.flavor_en || null,
         flavor_de: formData.flavor_de || null,
         status: formData.status,
-        image_url: formData.image_url || null,
+        photo_url: formData.photo_url || null,
         procedure,
         variants: variants.filter(v => v.size_name && v.size_grams),
       };
@@ -274,7 +274,7 @@ export default function AdminCropsPage() {
     setSelectedCropId(null);
     setIsEditing(true);
     setActiveTab('basics');
-    setFormData({ name_en: '', name_de: '', flavor_en: '', flavor_de: '', status: 'active', image_url: '' });
+    setFormData({ name_en: '', name_de: '', flavor_en: '', flavor_de: '', status: 'active', photo_url: '' });
     setProcedure({
       soak_enabled: false,
       soak_hours: undefined,
@@ -387,9 +387,9 @@ export default function AdminCropsPage() {
                 >
                   <div className="flex justify-between items-start gap-2">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
-                      {crop.image_url ? (
+                      {crop.photo_url ? (
                         <img
-                          src={crop.image_url}
+                          src={crop.photo_url}
                           alt={crop.name_en}
                           className="w-10 h-10 object-cover rounded-md flex-shrink-0"
                         />
@@ -530,13 +530,13 @@ export default function AdminCropsPage() {
                     <label className="block text-sm font-medium text-gray-900 mb-2">Crop Photo</label>
                     <div className="space-y-3">
                       <div className="flex items-center gap-4">
-                        {formData.image_url ? (
+                        {formData.photo_url ? (
                           <div className="relative w-20 h-20 border border-gray-300 rounded-lg overflow-hidden bg-gray-50 flex-shrink-0">
-                            <img src={formData.image_url} alt="Crop" className="w-full h-full object-cover" />
+                            <img src={formData.photo_url} alt="Crop" className="w-full h-full object-cover" />
                             {isEditing && (
                               <button
                                 type="button"
-                                onClick={() => setFormData({ ...formData, image_url: '' })}
+                                onClick={() => setFormData({ ...formData, photo_url: '' })}
                                 className="absolute top-0 right-0 bg-red-600 hover:bg-red-700 text-white p-1 rounded-bl-lg transition"
                                 title="Remove image"
                               >
@@ -574,7 +574,7 @@ export default function AdminCropsPage() {
 
                                   const json = await uploadRes.json();
                                   if (json.success) {
-                                    setFormData(prev => ({ ...prev, image_url: json.data.url }));
+                                    setFormData(prev => ({ ...prev, photo_url: json.data.url }));
                                     showToast('Image uploaded successfully', 'success');
                                   } else {
                                     showToast(json.error || 'Upload failed', 'error');
@@ -595,8 +595,8 @@ export default function AdminCropsPage() {
                           <label className="block text-xs font-medium text-gray-500 mb-1">Or paste image URL:</label>
                           <input
                             type="text"
-                            value={formData.image_url}
-                            onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                            value={formData.photo_url}
+                            onChange={(e) => setFormData({ ...formData, photo_url: e.target.value })}
                             className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                             placeholder="https://example.com/image.png"
                           />
