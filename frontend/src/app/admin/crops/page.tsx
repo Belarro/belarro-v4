@@ -125,7 +125,6 @@ export default function AdminCropsPage() {
       const json = await res.json();
       if (json.success && json.data) {
         const crop = json.data;
-        console.log('Loaded crop procedure:', crop.procedure);
         setFormData({
           name_en: crop.name_en || '',
           name_de: crop.name_de || '',
