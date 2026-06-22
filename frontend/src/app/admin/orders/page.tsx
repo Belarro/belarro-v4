@@ -8,7 +8,7 @@ interface OrderLine {
   product_variant_id: string;
   quantity: number;
   status: string;
-  customer: { id: string; name: string; email: string };
+  customer: { id: string; name: string; email: string; restaurant_name?: string };
   variant: {
     id: string;
     size_name: string;
@@ -86,7 +86,9 @@ export default function OrdersPage() {
   const filtered = useMemo(() => {
     if (!search.trim()) return grouped;
     const q = search.toLowerCase();
-    return grouped.filter(g => g.customer.name.toLowerCase().includes(q));
+    return grouped.filter(g =>
+      (g.customer.restaurant_name || g.customer.name).toLowerCase().includes(q)
+    );
   }, [grouped, search]);
 
   // --- Add order ---
@@ -216,7 +218,7 @@ export default function OrdersPage() {
           {filtered.map(({ customer, lines }) => (
             <div key={customer.id} className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
               <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border-b border-gray-100">
-                <span className="font-bold text-gray-900 text-base">{customer.name}</span>
+                <span className="font-bold text-gray-900 text-base">{customer.restaurant_name || customer.name}</span>
                 <button
                   onClick={() => openEdit({ customer, lines })}
                   className="text-sm font-semibold text-white bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded-lg transition"
@@ -326,7 +328,7 @@ export default function OrdersPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-lg border border-gray-200">
             <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-900">{editGroup.customer.name}</h2>
+              <h2 className="text-xl font-bold text-gray-900">{editGroup.customer.restaurant_name || editGroup.customer.name}</h2>
               <button onClick={() => setEditGroup(null)} className="text-gray-400 hover:text-gray-600 text-xl font-bold">✕</button>
             </div>
             <div className="p-6 space-y-3">

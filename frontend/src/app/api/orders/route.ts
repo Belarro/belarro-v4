@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
 
       // Hydrate with Customer and Variant
       const [customers, variants, crops] = await Promise.all([
-        fetchFromSupabase('/belarro_v4_customer?select=id,name,email'),
+        fetchFromSupabase('/belarro_v4_customer?select=id,name,email,restaurant_name'),
         fetchFromSupabase('/belarro_v4_product_variant?select=*'),
         fetchFromSupabase('/belarro_v4_crop?select=id,name_en,name_de')
       ]);
