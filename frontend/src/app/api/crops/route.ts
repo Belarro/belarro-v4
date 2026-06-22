@@ -112,17 +112,16 @@ export async function POST(request: NextRequest) {
           id: procedureId,
           crop_id: cropId,
           soak_enabled: procedure.soak_enabled || false,
-          soak_hours: procedure.soak_hours || null,
+          soak_hours: procedure.soak_enabled ? (procedure.soak_hours || null) : null,
           cover_soil_enabled: procedure.cover_soil_enabled || false,
           stack_enabled: procedure.stack_enabled || false,
-          stack_days: procedure.stack_days || null,
-          // New separate fields
+          stack_days: procedure.stack_enabled ? (procedure.stack_days || null) : null,
           blackout_enabled: procedure.blackout_enabled || false,
-          blackout_days: procedure.blackout_days || null,
-          humidity_dome_days: procedure.humidity_dome_days || null,
-          light_enabled: procedure.light_enabled !== false,
-          light_days: procedure.light_days || null,
+          blackout_days: procedure.blackout_enabled ? (procedure.blackout_days || null) : null,
           humidity_dome_enabled: procedure.humidity_dome_enabled || false,
+          humidity_dome_days: procedure.humidity_dome_enabled ? (procedure.humidity_dome_days || null) : null,
+          light_enabled: procedure.light_enabled !== false,
+          light_days: procedure.light_enabled !== false ? (procedure.light_days || null) : null,
         }),
       });
     }
@@ -216,40 +215,29 @@ export async function PUT(request: NextRequest) {
         `/belarro_v4_growth_procedure?crop_id=eq.${id}&select=id`
       );
 
+      const procData = {
+        soak_enabled: procedure.soak_enabled || false,
+        soak_hours: procedure.soak_enabled ? (procedure.soak_hours || null) : null,
+        cover_soil_enabled: procedure.cover_soil_enabled || false,
+        stack_enabled: procedure.stack_enabled || false,
+        stack_days: procedure.stack_enabled ? (procedure.stack_days || null) : null,
+        blackout_enabled: procedure.blackout_enabled || false,
+        blackout_days: procedure.blackout_enabled ? (procedure.blackout_days || null) : null,
+        humidity_dome_enabled: procedure.humidity_dome_enabled || false,
+        humidity_dome_days: procedure.humidity_dome_enabled ? (procedure.humidity_dome_days || null) : null,
+        light_enabled: procedure.light_enabled !== false,
+        light_days: procedure.light_enabled !== false ? (procedure.light_days || null) : null,
+      };
+
       if (existing && existing.length > 0) {
         await fetchFromSupabase(`/belarro_v4_growth_procedure?id=eq.${existing[0].id}`, {
           method: 'PATCH',
-          body: JSON.stringify({
-            soak_enabled: procedure.soak_enabled || false,
-            soak_hours: procedure.soak_hours || null,
-            cover_soil_enabled: procedure.cover_soil_enabled || false,
-            stack_enabled: procedure.stack_enabled || false,
-            stack_days: procedure.stack_days || null,
-            blackout_enabled: procedure.blackout_enabled || false,
-            blackout_days: procedure.blackout_days || null,
-            humidity_dome_enabled: procedure.humidity_dome_enabled || false,
-            humidity_dome_days: procedure.humidity_dome_days || null,
-            light_enabled: procedure.light_enabled !== false,
-            light_days: procedure.light_days || null,
-          }),
+          body: JSON.stringify(procData),
         });
       } else {
         await fetchFromSupabase('/belarro_v4_growth_procedure', {
           method: 'POST',
-          body: JSON.stringify({
-            crop_id: id,
-            soak_enabled: procedure.soak_enabled || false,
-            soak_hours: procedure.soak_hours || null,
-            cover_soil_enabled: procedure.cover_soil_enabled || false,
-            stack_enabled: procedure.stack_enabled || false,
-            stack_days: procedure.stack_days || null,
-            blackout_enabled: procedure.blackout_enabled || false,
-            blackout_days: procedure.blackout_days || null,
-            humidity_dome_enabled: procedure.humidity_dome_enabled || false,
-            humidity_dome_days: procedure.humidity_dome_days || null,
-            light_enabled: procedure.light_enabled !== false,
-            light_days: procedure.light_days || null,
-          }),
+          body: JSON.stringify({ crop_id: id, ...procData }),
         });
       }
     }
