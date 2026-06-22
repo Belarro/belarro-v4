@@ -42,11 +42,11 @@ export async function GET(request: NextRequest) {
     const auth = await requireAuth();
     if (!auth.ok) return auth.response;
 
-    // Fetch all pending follow-ups
+    // Fetch all follow-ups with location_id
     const followups = await fetchFromSupabase(
-      '/belarro_v4_follow_up?select=*&order=due_date.asc'
+      '/belarro_v4_follow_up?location_id=not.is.null&select=*&order=due_date.asc'
     );
-    const fls = (followups || []).filter((f: any) => f.location_id);
+    const fls = followups || [];
 
     if (fls.length === 0) {
       return NextResponse.json({ success: true, data: [] });
@@ -60,13 +60,45 @@ export async function GET(request: NextRequest) {
     );
     const locMap = new Map<string, any>((locations || []).map((l: any) => [l.id, l]));
 
-    // Only include follow-ups for locations not yet converted (pipeline_stage != 'active')
-    const hydrated = fls
-      .filter((f: any) => {
-        const loc = locMap.get(f.location_id);
-        if (!loc) return false;
-        return loc.pipeline_stage !== 'active';
+    // Only keep the next pending follow-up per location (lowest stage)
+    const nextPerLocation = new Map<string, any>();
+    for (const f of fls) {
+      const loc = locMap.get(f.location_id);
+      if (!loc) continue;
+      if (loc.pipeline_stage === 'active') continue;
+      if (f.status !== 'pending') continue;
+      const existing = nextPerLocation.get(f.location_id);
+      const stage = f.stage || f.follow_up_number || 1;
+      if (!existing || stage < (existing.stage || existing.follow_up_number || 1)) {
+        nextPerLocation.set(f.location_id, { ...f, stage });
+      }
+    }
+
+    const hydrated = Array.from(nextPerLocation.values()).map((f: any) => {
+        const loc = locMap.get(f.location_id) || {};
+        const contactName = loc.contact_person || loc.location_name || 'there';
+        const phone = parsePhone(loc.direct_phone) || parsePhone(loc.business_phone);
+        return {
+          ...f,
+          message_title: MESSAGES[f.stage]?.title || `Stage ${f.stage}`,
+          message_text: buildMessage(f.stage, contactName),
+          whatsapp_number: phone,
+          location: {
+            id: loc.id,
+            name: loc.location_name,
+            contact_person: loc.contact_person,
+            phone,
+            email: loc.direct_email || loc.business_email,
+            interest_level: loc.interest_level,
+            pipeline_stage: loc.pipeline_stage,
+          },
+        };
       })
+      .sort((a: any, b: any) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
+
+    // Also include completed ones for the Done tab
+    const completed = fls
+      .filter((f: any) => f.status === 'completed' || f.status === 'sent')
       .map((f: any) => {
         const loc = locMap.get(f.location_id) || {};
         const contactName = loc.contact_person || loc.location_name || 'there';
@@ -90,7 +122,7 @@ export async function GET(request: NextRequest) {
         };
       });
 
-    return NextResponse.json({ success: true, data: hydrated });
+    return NextResponse.json({ success: true, data: [...hydrated, ...completed] });
   } catch (error) {
     console.error('Followups GET error:', error);
     return NextResponse.json(
