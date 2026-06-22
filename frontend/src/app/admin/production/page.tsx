@@ -252,7 +252,6 @@ export default function ProductionPage() {
                         <tr className="text-xs font-semibold text-gray-400 uppercase border-b border-gray-100">
                           <th className="px-5 py-2 text-left">Variety</th>
                           <th className="px-5 py-2 text-right">Qty</th>
-                          <th className="px-5 py-2 text-right">Trays to Grow</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-50">
@@ -261,12 +260,6 @@ export default function ProductionPage() {
                             <td className="px-5 py-3 font-semibold text-gray-900">{item.crop_name}</td>
                             <td className="px-5 py-3 text-right text-gray-700">
                               {item.order_qty}× <span className="text-xs text-gray-500">{item.size_name || `${item.size_grams}g`}</span>
-                            </td>
-                            <td className="px-5 py-3 text-right font-bold text-gray-900">
-                              {item.trays_needed !== null && item.trays_needed !== undefined
-                                ? <>{item.trays_needed} <span className="text-xs font-normal text-gray-500">trays</span></>
-                                : <span className="text-xs text-amber-500">Set yield in crop</span>
-                              }
                             </td>
                           </tr>
                         ))}
