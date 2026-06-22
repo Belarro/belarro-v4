@@ -49,6 +49,7 @@ export default function InventoryPage() {
 
   const [editId, setEditId] = useState<string | null>(null);
   const [editQty, setEditQty] = useState<string>('');
+  const [editMode, setEditMode] = useState<'add' | 'set'>('add');
 
   const [showAddSeed, setShowAddSeed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -101,20 +102,19 @@ export default function InventoryPage() {
     }
   };
 
-  const handleSaveQty = async (type: 'seeds' | 'packages' | 'samples', id: string) => {
+  const handleSaveQty = async (type: 'seeds' | 'packages' | 'samples', id: string, currentQty: number) => {
     try {
+      const delta = parseFloat(editQty) || 0;
+      const newQty = editMode === 'add' ? currentQty + delta : delta;
       const res = await fetch('/api/inventory', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type,
-          id,
-          quantity: parseFloat(editQty) || 0
-        })
+        body: JSON.stringify({ type, id, quantity: newQty })
       });
       const json = await res.json();
       if (json.success) {
         setEditId(null);
+        setEditQty('');
         fetchInventory();
       }
     } catch (err) {
@@ -211,27 +211,38 @@ export default function InventoryPage() {
                       </td>
                       <td className="p-4 text-right">
                         {editId === s.id ? (
-                          <div className="space-x-2">
+                          <div className="flex items-center justify-end gap-2">
+                            <span className="text-xs text-gray-500 font-semibold">
+                              {editMode === 'add' ? `${s.quantity_grams}g +` : 'Set to'}
+                            </span>
+                            <input
+                              type="number" min="0" autoFocus
+                              value={editQty}
+                              onChange={e => setEditQty(e.target.value)}
+                              className="w-20 px-2 py-1 border border-green-400 rounded text-center text-sm outline-none focus:ring-2 focus:ring-green-500"
+                              placeholder="grams"
+                            />
+                            <span className="text-xs text-gray-400">g</span>
                             <button
-                              onClick={() => handleSaveQty('seeds', s.id)}
+                              onClick={() => handleSaveQty('seeds', s.id, s.quantity_grams)}
                               className="bg-green-600 hover:bg-green-700 text-white font-semibold px-2.5 py-1 rounded text-xs"
-                            >
-                              Save
-                            </button>
+                            >Save</button>
                             <button
-                              onClick={() => setEditId(null)}
-                              className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold px-2.5 py-1 rounded text-xs border border-gray-200"
-                            >
-                              Cancel
-                            </button>
+                              onClick={() => { setEditId(null); setEditQty(''); }}
+                              className="text-gray-400 hover:text-gray-600 font-bold text-sm"
+                            >✕</button>
                           </div>
                         ) : (
-                          <button
-                            onClick={() => { setEditId(s.id); setEditQty(s.quantity_grams.toString()); }}
-                            className="bg-gray-50 hover:bg-gray-100 text-gray-700 font-semibold px-3 py-1.5 rounded-lg border border-gray-200 text-xs"
-                          >
-                            Adjust Stock
-                          </button>
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => { setEditId(s.id); setEditQty(''); setEditMode('add'); }}
+                              className="bg-green-50 hover:bg-green-100 text-green-700 font-semibold px-3 py-1.5 rounded-lg border border-green-200 text-xs"
+                            >+ Received</button>
+                            <button
+                              onClick={() => { setEditId(s.id); setEditQty(s.quantity_grams.toString()); setEditMode('set'); }}
+                              className="bg-gray-50 hover:bg-gray-100 text-gray-600 font-semibold px-3 py-1.5 rounded-lg border border-gray-200 text-xs"
+                            >Set</button>
+                          </div>
                         )}
                       </td>
                     </tr>
@@ -281,7 +292,7 @@ export default function InventoryPage() {
                         {editId === p.id ? (
                           <div className="space-x-2">
                             <button
-                              onClick={() => handleSaveQty('packages', p.id)}
+                              onClick={() => handleSaveQty('packages', p.id, p.quantity_available)}
                               className="bg-green-600 hover:bg-green-700 text-white font-semibold px-2.5 py-1 rounded text-xs"
                             >
                               Save
@@ -339,7 +350,7 @@ export default function InventoryPage() {
                       {editId === s.id ? (
                         <div className="space-x-2">
                           <button
-                            onClick={() => handleSaveQty('samples', s.id)}
+                            onClick={() => handleSaveQty('samples', s.id, s.available_grams)}
                             className="bg-green-600 hover:bg-green-700 text-white font-semibold px-2.5 py-1 rounded text-xs"
                           >
                             Save
