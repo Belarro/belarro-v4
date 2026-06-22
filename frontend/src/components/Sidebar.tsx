@@ -40,6 +40,7 @@ const sections = [
       { label: 'Inventory', href: '/admin/inventory', icon: BoxIcon },
       { label: 'Invoices', href: '/admin/invoices', icon: ClipboardListIcon },
       { label: 'Follow-ups', href: '/admin/follow-ups', icon: PhoneIcon },
+      { label: 'Import Leads', href: '/admin/import', icon: ClipboardListIcon },
       { label: 'Seeding', href: '/admin/seeding', icon: SparklesIcon },
     ],
   },
