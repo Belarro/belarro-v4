@@ -27,8 +27,16 @@ interface ProductVariant {
   size_grams: number;
   price_eur?: number;
   is_internal: boolean;
+  container_size?: string;
+  container_qty?: number;
   created_at?: string;
   updated_at?: string;
+}
+
+interface PackagingSize {
+  id: string;
+  size_name: string;
+  quantity: number;
 }
 
 interface Crop {
@@ -87,7 +95,17 @@ export default function AdminCropsPage() {
   });
 
   const [variants, setVariants] = useState<ProductVariant[]>([]);
-  const [newVariant, setNewVariant] = useState({ size_name: '', size_grams: '', price_eur: '' });
+  const [newVariant, setNewVariant] = useState({ size_name: '', size_grams: '', price_eur: '', container_size: '', container_qty: '1' });
+  const [packagingSizes, setPackagingSizes] = useState<PackagingSize[]>([]);
+
+  // Fetch packaging sizes for container dropdown
+  const fetchPackagingSizes = async () => {
+    try {
+      const res = await fetch('/api/packaging-stock');
+      const json = await res.json();
+      if (json.success) setPackagingSizes(json.data || []);
+    } catch {}
+  };
 
   // Fetch crops
   const fetchCrops = async () => {
@@ -110,6 +128,7 @@ export default function AdminCropsPage() {
 
   useEffect(() => {
     fetchCrops();
+    fetchPackagingSizes();
   }, []);
 
   // Load selected crop
@@ -296,9 +315,11 @@ export default function AdminCropsPage() {
         size_grams: parseFloat(newVariant.size_grams),
         price_eur: newVariant.price_eur ? parseFloat(newVariant.price_eur) : undefined,
         is_internal: newVariant.size_name.toLowerCase() === 'container',
+        container_size: newVariant.container_size || undefined,
+        container_qty: newVariant.container_qty ? parseInt(newVariant.container_qty) : 1,
       },
     ]);
-    setNewVariant({ size_name: '', size_grams: '', price_eur: '' });
+    setNewVariant({ size_name: '', size_grams: '', price_eur: '', container_size: '', container_qty: '1' });
   };
 
   const handleRemoveVariant = (index: number) => {
@@ -827,8 +848,10 @@ export default function AdminCropsPage() {
                           <thead>
                             <tr className="border-b border-gray-200">
                               <th className="p-2 text-left text-xs font-semibold text-gray-600">Size</th>
-                              <th className="p-2 text-left text-xs font-semibold text-gray-600">Internal Grams</th>
+                              <th className="p-2 text-left text-xs font-semibold text-gray-600">Grams</th>
                               <th className="p-2 text-left text-xs font-semibold text-gray-600">Price (€)</th>
+                              <th className="p-2 text-left text-xs font-semibold text-gray-600">Container</th>
+                              <th className="p-2 text-left text-xs font-semibold text-gray-600">Qty</th>
                               {isEditing && <th className="p-2 text-center text-xs font-semibold text-gray-600">Action</th>}
                             </tr>
                           </thead>
@@ -838,6 +861,8 @@ export default function AdminCropsPage() {
                                 <td className="p-2">{variant.size_name}</td>
                                 <td className="p-2 text-gray-600">{variant.size_grams}g</td>
                                 <td className="p-2">{variant.price_eur ? '€' + variant.price_eur.toFixed(2) : '—'}</td>
+                                <td className="p-2 text-gray-600">{variant.container_size || '—'}</td>
+                                <td className="p-2 text-gray-600">{variant.container_qty ?? 1}</td>
                                 {isEditing && (
                                   <td className="p-2 text-center">
                                     <button
@@ -889,6 +914,30 @@ export default function AdminCropsPage() {
                             placeholder="e.g., 18.50"
                             value={newVariant.price_eur}
                             onChange={(e) => setNewVariant({ ...newVariant, price_eur: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Container Size</label>
+                          <select
+                            value={newVariant.container_size}
+                            onChange={(e) => setNewVariant({ ...newVariant, container_size: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                          >
+                            <option value="">— None —</option>
+                            {packagingSizes.map(ps => (
+                              <option key={ps.id} value={ps.size_name}>{ps.size_name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Containers per Order</label>
+                          <input
+                            type="number"
+                            min="1"
+                            placeholder="1"
+                            value={newVariant.container_qty}
+                            onChange={(e) => setNewVariant({ ...newVariant, container_qty: e.target.value })}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                           />
                         </div>

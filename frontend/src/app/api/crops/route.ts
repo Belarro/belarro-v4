@@ -141,6 +141,8 @@ export async function POST(request: NextRequest) {
               size_grams: variant.size_grams,
               price_eur: variant.price_eur || null,
               is_internal: variant.is_internal || false,
+              container_size: variant.container_size || null,
+              container_qty: variant.container_qty || 1,
             }),
           });
         }
@@ -279,6 +281,8 @@ export async function PUT(request: NextRequest) {
               size_grams: variant.size_grams,
               price_eur: variant.price_eur || null,
               is_internal: variant.is_internal || false,
+              container_size: variant.container_size || null,
+              container_qty: variant.container_qty || 1,
               deleted_at: null,
             }),
           });
@@ -292,6 +296,8 @@ export async function PUT(request: NextRequest) {
               size_grams: variant.size_grams,
               price_eur: variant.price_eur || null,
               is_internal: variant.is_internal || false,
+              container_size: variant.container_size || null,
+              container_qty: variant.container_qty || 1,
             }),
           });
         }
