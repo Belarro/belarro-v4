@@ -285,28 +285,24 @@ export default function ProductionPage() {
                       <tr className="bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase">
                         <th className="px-5 py-3 text-left">Variety</th>
                         <th className="px-5 py-3 text-center">Trays</th>
-                        <th className="px-5 py-3 text-left">Seeded</th>
-                        <th className="px-5 py-3 text-left">Harvest</th>
+                        <th className="px-5 py-3 text-left">Harvest Date</th>
                         <th className="px-5 py-3 text-left">Days Left</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {data.active_batches.map(b => {
+                      {data.active_batches.filter((b: ActiveBatch) => new Date(b.expected_harvest_date) > new Date()).map(b => {
                         const harvestDate = new Date(b.expected_harvest_date);
                         const daysLeft = Math.ceil((harvestDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
                         return (
                           <tr key={b.id} className="hover:bg-gray-50">
                             <td className="px-5 py-3 font-semibold text-gray-900">{b.crop.name_en}</td>
                             <td className="px-5 py-3 text-center font-bold">{b.quantity_trays}</td>
-                            <td className="px-5 py-3 text-gray-600">{new Date(b.seeding_date).toLocaleDateString()}</td>
-                            <td className="px-5 py-3 font-semibold">{harvestDate.toLocaleDateString('en-DE', { weekday: 'short', day: 'numeric', month: 'short' })}</td>
+                            <td className="px-5 py-3 font-semibold text-gray-900">{harvestDate.toLocaleDateString('en-DE', { weekday: 'short', day: 'numeric', month: 'short' })}</td>
                             <td className="px-5 py-3">
                               <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${
-                                daysLeft <= 0 ? 'bg-red-100 text-red-700' :
-                                daysLeft <= 3 ? 'bg-amber-100 text-amber-700' :
-                                'bg-gray-100 text-gray-600'
+                                daysLeft <= 3 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'
                               }`}>
-                                {daysLeft <= 0 ? 'Ready' : `${daysLeft}d`}
+                                {daysLeft}d
                               </span>
                             </td>
                           </tr>
@@ -333,9 +329,9 @@ export default function ProductionPage() {
                       <div className="flex items-start justify-between">
                         <div>
                           <div className="font-bold text-gray-900 text-base">{b.crop.name_en}</div>
-                          <div className="text-xs text-gray-500">{b.quantity_trays} trays · seeded {new Date(b.seeding_date).toLocaleDateString()}</div>
+                          <div className="text-xs text-gray-500">{b.quantity_trays} trays</div>
                         </div>
-                        <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-700 rounded-full">Ready</span>
+                        <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-700 rounded-full">Harvest</span>
                       </div>
                       <button
                         onClick={() => setHarvestModal(b)}
