@@ -97,6 +97,8 @@ export default function AdminCropsPage() {
   const [variants, setVariants] = useState<ProductVariant[]>([]);
   const [newVariant, setNewVariant] = useState({ size_name: '', size_grams: '', price_eur: '', container_size: '', container_qty: '1' });
   const [packagingSizes, setPackagingSizes] = useState<PackagingSize[]>([]);
+  const [editingVariantIdx, setEditingVariantIdx] = useState<number | null>(null);
+  const [editingVariant, setEditingVariant] = useState({ size_name: '', size_grams: '', price_eur: '', container_size: '', container_qty: '1' });
 
   // Fetch packaging sizes for container dropdown
   const fetchPackagingSizes = async () => {
@@ -324,6 +326,38 @@ export default function AdminCropsPage() {
 
   const handleRemoveVariant = (index: number) => {
     setVariants(variants.filter((_, i) => i !== index));
+    if (editingVariantIdx === index) setEditingVariantIdx(null);
+  };
+
+  const handleStartEditVariant = (index: number) => {
+    const v = variants[index];
+    setEditingVariantIdx(index);
+    setEditingVariant({
+      size_name: v.size_name,
+      size_grams: String(v.size_grams),
+      price_eur: v.price_eur !== undefined ? String(v.price_eur) : '',
+      container_size: v.container_size || '',
+      container_qty: String(v.container_qty ?? 1),
+    });
+  };
+
+  const handleSaveEditVariant = (index: number) => {
+    if (!editingVariant.size_name || !editingVariant.size_grams) {
+      showToast('Size name and grams required', 'error');
+      return;
+    }
+    const updated = variants.map((v, i) =>
+      i === index ? {
+        ...v,
+        size_name: editingVariant.size_name,
+        size_grams: parseFloat(editingVariant.size_grams),
+        price_eur: editingVariant.price_eur ? parseFloat(editingVariant.price_eur) : undefined,
+        container_size: editingVariant.container_size || undefined,
+        container_qty: editingVariant.container_qty ? parseInt(editingVariant.container_qty) : 1,
+      } : v
+    );
+    setVariants(updated);
+    setEditingVariantIdx(null);
   };
 
   const calculateTotalDays = () => {
@@ -858,20 +892,93 @@ export default function AdminCropsPage() {
                           <tbody>
                             {variants.map((variant, idx) => (
                               <tr key={idx} className="border-b border-gray-100">
-                                <td className="p-2">{variant.size_name}</td>
-                                <td className="p-2 text-gray-600">{variant.size_grams}g</td>
-                                <td className="p-2">{variant.price_eur ? '€' + variant.price_eur.toFixed(2) : '—'}</td>
-                                <td className="p-2 text-gray-600">{variant.container_size || '—'}</td>
-                                <td className="p-2 text-gray-600">{variant.container_qty ?? 1}</td>
-                                {isEditing && (
-                                  <td className="p-2 text-center">
-                                    <button
-                                      onClick={() => handleRemoveVariant(idx)}
-                                      className="text-red-600 hover:text-red-700 text-xs font-medium"
-                                    >
-                                      Delete
-                                    </button>
-                                  </td>
+                                {editingVariantIdx === idx ? (
+                                  <>
+                                    <td className="p-1">
+                                      <input
+                                        type="text"
+                                        value={editingVariant.size_name}
+                                        onChange={(e) => setEditingVariant({ ...editingVariant, size_name: e.target.value })}
+                                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-green-500"
+                                      />
+                                    </td>
+                                    <td className="p-1">
+                                      <input
+                                        type="number"
+                                        value={editingVariant.size_grams}
+                                        onChange={(e) => setEditingVariant({ ...editingVariant, size_grams: e.target.value })}
+                                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-green-500"
+                                      />
+                                    </td>
+                                    <td className="p-1">
+                                      <input
+                                        type="number"
+                                        step="0.01"
+                                        value={editingVariant.price_eur}
+                                        onChange={(e) => setEditingVariant({ ...editingVariant, price_eur: e.target.value })}
+                                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-green-500"
+                                      />
+                                    </td>
+                                    <td className="p-1">
+                                      <select
+                                        value={editingVariant.container_size}
+                                        onChange={(e) => setEditingVariant({ ...editingVariant, container_size: e.target.value })}
+                                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-green-500 bg-white"
+                                      >
+                                        <option value="">— None —</option>
+                                        {packagingSizes.map(ps => (
+                                          <option key={ps.id} value={ps.size_name}>{ps.size_name}</option>
+                                        ))}
+                                      </select>
+                                    </td>
+                                    <td className="p-1">
+                                      <input
+                                        type="number"
+                                        min="1"
+                                        value={editingVariant.container_qty}
+                                        onChange={(e) => setEditingVariant({ ...editingVariant, container_qty: e.target.value })}
+                                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-green-500"
+                                      />
+                                    </td>
+                                    <td className="p-1 text-center whitespace-nowrap">
+                                      <button
+                                        onClick={() => handleSaveEditVariant(idx)}
+                                        className="text-green-600 hover:text-green-700 text-xs font-medium mr-2"
+                                      >
+                                        Save
+                                      </button>
+                                      <button
+                                        onClick={() => setEditingVariantIdx(null)}
+                                        className="text-gray-500 hover:text-gray-700 text-xs font-medium"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </td>
+                                  </>
+                                ) : (
+                                  <>
+                                    <td className="p-2">{variant.size_name}</td>
+                                    <td className="p-2 text-gray-600">{variant.size_grams}g</td>
+                                    <td className="p-2">{variant.price_eur ? '€' + variant.price_eur.toFixed(2) : '—'}</td>
+                                    <td className="p-2 text-gray-600">{variant.container_size || '—'}</td>
+                                    <td className="p-2 text-gray-600">{variant.container_qty ?? 1}</td>
+                                    {isEditing && (
+                                      <td className="p-2 text-center whitespace-nowrap">
+                                        <button
+                                          onClick={() => handleStartEditVariant(idx)}
+                                          className="text-green-600 hover:text-green-700 text-xs font-medium mr-2"
+                                        >
+                                          Edit
+                                        </button>
+                                        <button
+                                          onClick={() => handleRemoveVariant(idx)}
+                                          className="text-red-600 hover:text-red-700 text-xs font-medium"
+                                        >
+                                          Delete
+                                        </button>
+                                      </td>
+                                    )}
+                                  </>
                                 )}
                               </tr>
                             ))}
