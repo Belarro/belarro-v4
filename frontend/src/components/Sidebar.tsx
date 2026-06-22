@@ -21,10 +21,11 @@ const sections = [
     items: [{ label: 'Dashboard', href: '/admin', icon: DashboardIcon }],
   },
   {
-    title: 'Production',
+    title: 'Farm',
     items: [
-      { label: 'Crop Configuration', href: '/admin/crops', icon: LeafIcon },
-      { label: 'Overview', href: '/admin', icon: LeafIcon },
+      { label: 'Crops', href: '/admin/crops', icon: LeafIcon },
+      { label: 'Production', href: '/admin/production', icon: SparklesIcon },
+      { label: 'Inventory', href: '/admin/inventory', icon: BoxIcon },
     ],
   },
   {
@@ -32,16 +33,14 @@ const sections = [
     items: [
       { label: 'Customers', href: '/admin/customers', icon: UsersIcon },
       { label: 'Orders', href: '/admin/orders', icon: ShoppingCartIcon },
+      { label: 'Follow-ups', href: '/admin/follow-ups', icon: PhoneIcon },
+      { label: 'Import Leads', href: '/admin/import', icon: ClipboardListIcon },
     ],
   },
   {
-    title: 'Operations',
+    title: 'Finance',
     items: [
-      { label: 'Inventory', href: '/admin/inventory', icon: BoxIcon },
       { label: 'Invoices', href: '/admin/invoices', icon: ClipboardListIcon },
-      { label: 'Follow-ups', href: '/admin/follow-ups', icon: PhoneIcon },
-      { label: 'Import Leads', href: '/admin/import', icon: ClipboardListIcon },
-      { label: 'Seeding', href: '/admin/seeding', icon: SparklesIcon },
     ],
   },
 ];

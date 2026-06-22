@@ -7,6 +7,8 @@ interface FollowUp {
   location_id: string;
   stage: number;
   follow_up_number: number;
+  flow: 'new' | 'reengage';
+  total_stages: number;
   due_date: string;
   status: 'pending' | 'sent' | 'completed';
   sent_via: string | null;
@@ -148,24 +150,27 @@ export default function FollowUpsPage() {
             )}
           </div>
           <span className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded-full ${STAGE_COLORS[f.stage] || 'bg-gray-100 text-gray-600'}`}>
-            Stage {f.stage}/5
+            {f.flow === 'reengage' ? 'Re-engage' : 'Lead'} {f.stage}/{f.total_stages || 5}
           </span>
         </div>
 
-        {/* 5-stage progress dots */}
+        {/* Progress dots — 4 for re-engage, 5 for new lead */}
         <div className="flex items-center gap-1.5">
-          {[1,2,3,4,5].map(s => (
+          {Array.from({ length: f.total_stages || 5 }, (_, i) => i + 1).map(s => {
+            const newLabels: Record<number,string> = { 1:'2h', 2:'2d', 3:'5d', 4:'2w', 5:'1m' };
+            const reLabels: Record<number,string> = { 1:'now', 2:'5d', 3:'2w', 4:'1m' };
+            const label = f.flow === 'reengage' ? reLabels[s] : newLabels[s];
+            return (
             <div key={s} className="flex-1 flex flex-col items-center gap-1">
               <div className={`w-full h-1.5 rounded-full transition-all ${
                 s < f.stage ? 'bg-green-500' :
                 s === f.stage ? 'bg-green-400 animate-pulse' :
                 'bg-gray-200'
               }`} />
-              <span className="text-[9px] text-gray-400 font-medium">
-                {s === 1 ? '2h' : s === 2 ? '2d' : s === 3 ? '5d' : s === 4 ? '2w' : '1m'}
-              </span>
+              <span className="text-[9px] text-gray-400 font-medium">{label}</span>
             </div>
-          ))}
+          );})}
+
         </div>
 
         {/* Contact info */}

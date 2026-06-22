@@ -3,33 +3,127 @@ import { fetchFromSupabase } from '@/lib/supabase';
 import { requireAuth } from '@/lib/auth';
 
 const CHEF_PAGE = 'https://belarro.com/for-chefs';
+const OLD_LEAD_DAYS = 60;
 
-const MESSAGES: Record<number, { title: string; template: string }> = {
+// ─── NEW LEAD FLOW (visited < 60 days ago) ───────────────────────────────────
+
+const NEW_EN: Record<number, { title: string; template: string }> = {
   1: {
     title: 'The Link (2 hours)',
-    template: `Hello [Name],\n\nThank you for your time today; it was a pleasure meeting you.\n\nHere is the link for our varieties and pricing: ${CHEF_PAGE}\n\nI would love to hear what you think. Just a reminder: no delivery fees, no minimum order.\n\nEnjoy the rest of your service.\nRon from Belarro`,
+    template: `Hello [Name],\n\nThank you for your time today; it was a pleasure meeting you.\n\nHere is the link for our varieties and pricing:\n\n${CHEF_PAGE}\n\nI would love to hear what you think. Just a reminder: no delivery fees, no minimum order.\n\nEnjoy the rest of your service.\nRon from Belarro`,
   },
   2: {
     title: 'The Taste (2 days)',
-    template: `Hello [Name],\n\nRon from Belarro. I hope you had the chance to taste the samples and see how they work with your dishes.\n\nWe only grow what you order, no old stock, zero waste. We harvest the morning of delivery, and our greens last up to 10 days in the fridge.\n\nLet me know what caught your eye and I'll get it into the next grow cycle.\n\nRon`,
+    template: `Hello [Name],\n\nRon from Belarro. I hope you had the chance to taste the samples and see how they work with your dishes.\n\nWe only grow what you order, no old stock, zero waste. We harvest the morning of delivery, and our greens last up to 10 days in the fridge.\n\nLet me know what caught your eye and I will get it into the next grow cycle.\n\nRon from Belarro`,
   },
   3: {
     title: 'The Facts (5 days)',
-    template: `Hello [Name],\n\nRon from Belarro. Wanted to follow up and see how you found our greens.\n\nWe grow over 25 varieties, more variety than most suppliers, more options for your plates. Orders are recurring: order once, receive fresh every Tuesday. You can always change, add or cancel.\n\nHere's the full list: ${CHEF_PAGE}\n\nRon`,
+    template: `Hello [Name],\n\nRon from Belarro. Wanted to follow up and see how you found our greens.\n\nWe grow over 25 varieties, more variety than most suppliers, more options for your plates. Orders are recurring: order once, receive fresh every Tuesday. You can always change, add or cancel.\n\nHere is the full list:\n\n${CHEF_PAGE}\n\nRon from Belarro`,
   },
   4: {
     title: 'The Easy Yes (2 weeks)',
-    template: `Hello [Name],\n\nRon from Belarro. Haven't heard back, just wanted to check in.\n\nWe're local. No imports, faster, more consistent product, just fresh greens with less emissions.\n\nNo minimums, no pressure. Just let me know when you're ready.\n\nRon`,
+    template: `Hello [Name],\n\nRon from Belarro. Haven't heard back, just wanted to check in.\n\nWe are local. No imports, faster, more consistent product, just fresh greens with less emissions.\n\nNo minimums, no delivery fees. Just let me know when you are ready.\n\nRon from Belarro`,
   },
   5: {
     title: 'The Open Door (1 month)',
-    template: `Hello [Name],\n\nRon from Belarro. No worries if the timing wasn't right.\n\nWhenever you need fresh microgreens, we're one message away. No minimums, free delivery, harvested the morning we bring them to you.\n\nOur varieties and pricing are always here: ${CHEF_PAGE}\n\nWishing you a great season.\nRon`,
+    template: `Hello [Name],\n\nRon from Belarro. No worries if the timing wasn't right.\n\nWhenever you need fresh microgreens, we are one message away. No minimums, free delivery, harvested the morning we bring them to you.\n\nOur varieties and pricing are always here:\n\n${CHEF_PAGE}\n\nWishing you a great season.\nRon from Belarro`,
   },
 };
 
-function buildMessage(stage: number, contactName: string): string {
-  const tpl = MESSAGES[stage]?.template || '';
-  return tpl.replace(/\[Name\]/g, contactName || 'there');
+const NEW_DE: Record<number, { title: string; template: string }> = {
+  1: {
+    title: 'The Link (2 Stunden)',
+    template: `Hallo [Name],\n\nvielen Dank für Ihre Zeit heute, es war eine Freude Sie kennenzulernen.\n\nHier ist der Link zu unseren Sorten und Preisen:\n\n${CHEF_PAGE}\n\nIch würde mich freuen zu hören, was Sie denken. Zur Erinnerung: keine Lieferkosten, keine Mindestbestellung.\n\nGenießen Sie den Rest Ihres Abends.\nRon von Belarro`,
+  },
+  2: {
+    title: 'The Taste (2 Tage)',
+    template: `Hallo [Name],\n\nRon von Belarro. Ich hoffe, Sie hatten die Gelegenheit, die Proben zu probieren und zu sehen, wie sie zu Ihren Gerichten passen.\n\nWir wachsen nur, was Sie bestellen, kein alter Bestand, kein Abfall. Wir ernten am Morgen der Lieferung und unsere Microgreens bleiben bis zu 10 Tage frisch im Kühlschrank.\n\nLassen Sie mich wissen, was Ihr Interesse geweckt hat, und ich nehme es in den nächsten Anbauzyklus auf.\n\nRon von Belarro`,
+  },
+  3: {
+    title: 'The Facts (5 Tage)',
+    template: `Hallo [Name],\n\nRon von Belarro. Ich wollte nachfragen, wie Ihnen unsere Microgreens gefallen haben.\n\nWir bauen über 25 Sorten an, mehr Auswahl als die meisten Lieferanten, mehr Möglichkeiten für Ihre Teller. Bestellungen sind wiederkehrend: einmal bestellen, jeden Dienstag frisch erhalten. Sie können jederzeit ändern, hinzufügen oder stornieren.\n\nHier ist die vollständige Liste:\n\n${CHEF_PAGE}\n\nRon von Belarro`,
+  },
+  4: {
+    title: 'The Easy Yes (2 Wochen)',
+    template: `Hallo [Name],\n\nRon von Belarro. Ich habe noch nichts gehört und wollte kurz nachfragen.\n\nWir sind lokal. Keine Importe, schnelleres und konsistenteres Produkt, einfach frische Microgreens mit weniger Emissionen.\n\nKeine Mindestbestellung, keine Lieferkosten. Sagen Sie mir einfach, wann Sie bereit sind.\n\nRon von Belarro`,
+  },
+  5: {
+    title: 'The Open Door (1 Monat)',
+    template: `Hallo [Name],\n\nRon von Belarro. Kein Problem, wenn der Zeitpunkt nicht gepasst hat.\n\nWann immer Sie frische Microgreens benötigen, wir sind eine Nachricht entfernt. Keine Mindestbestellung, kostenlose Lieferung, geerntet am Morgen der Lieferung.\n\nUnsere Sorten und Preise finden Sie hier:\n\n${CHEF_PAGE}\n\nWir wünschen Ihnen eine großartige Saison.\nRon von Belarro`,
+  },
+};
+
+// ─── RE-ENGAGE FLOW (visited > 60 days ago) ──────────────────────────────────
+// Stage numbers: 1=Re-Engage, 2=Follow Up, 3=Easy Yes, 4=Open Door
+
+const REENGAGE_EN: Record<number, { title: string; template: string }> = {
+  1: {
+    title: 'Re-Engage',
+    template: `Hello [Name],\n\nRon from Belarro. We stopped by a while back and introduced ourselves and our microgreens.\n\nWe never heard back and we still wish to work with you. Since we last spoke we have grown our variety selection and would love the chance to show you what we can bring to your kitchen.\n\nWe grow to order, harvest the morning of delivery, and our greens stay fresh for 7 to 10 days. No delivery fees, no minimum order. Even one box, we deliver.\n\nHere is our full selection:\n\n${CHEF_PAGE}\n\nRon from Belarro`,
+  },
+  2: {
+    title: 'Re-Engage Follow Up (5 days)',
+    template: `Hello [Name],\n\nRon from Belarro. Just following up on my last message.\n\nWe grow over 25 varieties. Order once and receive fresh every week. You can always change, add or cancel. No minimums, no delivery fees.\n\nWhenever you are ready, we are one message away.\n\nRon from Belarro`,
+  },
+  3: {
+    title: 'The Easy Yes (2 weeks)',
+    template: NEW_EN[4].template,
+  },
+  4: {
+    title: 'The Open Door (1 month)',
+    template: NEW_EN[5].template,
+  },
+};
+
+const REENGAGE_DE: Record<number, { title: string; template: string }> = {
+  1: {
+    title: 'Re-Engage',
+    template: `Hallo [Name],\n\nRon von Belarro. Wir waren vor einer Weile bei Ihnen und haben uns und unsere Microgreens vorgestellt.\n\nWir haben nie eine Rückmeldung erhalten und möchten dennoch gerne mit Ihnen zusammenarbeiten. Seit unserem letzten Gespräch haben wir unser Sortenangebot erweitert und würden uns freuen, Ihnen zu zeigen, was wir für Ihre Küche leisten können.\n\nWir wachsen auf Bestellung, ernten am Morgen der Lieferung, und unsere Microgreens bleiben 7 bis 10 Tage frisch. Keine Lieferkosten, keine Mindestbestellung. Auch eine einzelne Box liefern wir.\n\nHier ist unsere vollständige Auswahl:\n\n${CHEF_PAGE}\n\nRon von Belarro`,
+  },
+  2: {
+    title: 'Re-Engage Follow Up (5 Tage)',
+    template: `Hallo [Name],\n\nRon von Belarro. Ich melde mich kurz zu meiner letzten Nachricht.\n\nWir bauen über 25 Sorten an. Einmal bestellen und jede Woche frisch erhalten. Sie können jederzeit ändern, hinzufügen oder stornieren. Keine Mindestbestellung, keine Lieferkosten.\n\nWann immer Sie bereit sind, wir sind eine Nachricht entfernt.\n\nRon von Belarro`,
+  },
+  3: {
+    title: 'The Easy Yes (2 Wochen)',
+    template: NEW_DE[4].template,
+  },
+  4: {
+    title: 'The Open Door (1 Monat)',
+    template: NEW_DE[5].template,
+  },
+};
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+
+function buildMessage(flow: 'new' | 'reengage', stage: number, lang: string, contactName: string): { title: string; text: string } {
+  const name = contactName || 'there';
+  const isDE = lang === 'de';
+  const isBilingual = !lang || lang === '';
+
+  if (flow === 'reengage') {
+    const en = REENGAGE_EN[stage] || REENGAGE_EN[1];
+    const de = REENGAGE_DE[stage] || REENGAGE_DE[1];
+    if (isBilingual) {
+      return {
+        title: en.title,
+        text: en.template.replace(/\[Name\]/g, name) + '\n\n---\n\n' + de.template.replace(/\[Name\]/g, name),
+      };
+    }
+    const msg = isDE ? de : en;
+    return { title: msg.title, text: msg.template.replace(/\[Name\]/g, name) };
+  } else {
+    const en = NEW_EN[stage] || NEW_EN[1];
+    const de = NEW_DE[stage] || NEW_DE[1];
+    if (isBilingual) {
+      return {
+        title: en.title,
+        text: en.template.replace(/\[Name\]/g, name) + '\n\n---\n\n' + de.template.replace(/\[Name\]/g, name),
+      };
+    }
+    const msg = isDE ? de : en;
+    return { title: msg.title, text: msg.template.replace(/\[Name\]/g, name) };
+  }
 }
 
 function parsePhone(raw: string | null): string | null {
@@ -37,87 +131,107 @@ function parsePhone(raw: string | null): string | null {
   return raw.replace(/\s+/g, '').replace(/^00/, '+');
 }
 
+function isOldLead(timestamp: string | null, createdAt: string | null): boolean {
+  const dateStr = timestamp || createdAt;
+  if (!dateStr) return true;
+  const cleaned = String(dateStr).trim()
+    .replace(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/, '$3-$2-$1')
+    .replace(' ', 'T');
+  const date = new Date(cleaned);
+  if (isNaN(date.getTime())) return true;
+  const diffDays = (Date.now() - date.getTime()) / (1000 * 60 * 60 * 24);
+  return diffDays > OLD_LEAD_DAYS;
+}
+
+// ─── GET ─────────────────────────────────────────────────────────────────────
+
 export async function GET(request: NextRequest) {
   try {
     const auth = await requireAuth();
     if (!auth.ok) return auth.response;
 
-    // Fetch all follow-ups with location_id
     const followups = await fetchFromSupabase(
       '/belarro_v4_follow_up?location_id=not.is.null&select=*&order=due_date.asc'
     );
     const fls = followups || [];
+    if (fls.length === 0) return NextResponse.json({ success: true, data: [] });
 
-    if (fls.length === 0) {
-      return NextResponse.json({ success: true, data: [] });
-    }
-
-    // Fetch all locations that have follow-ups
     const locationIds = [...new Set(fls.map((f: any) => f.location_id))];
     const idFilter = locationIds.map((id: any) => `id.eq.${id}`).join(',');
     const locations = await fetchFromSupabase(
-      `/locations?or=(${idFilter})&archived=neq.YES&select=id,location_name,contact_person,direct_phone,business_phone,direct_email,business_email,language,visit_notes,pipeline_stage,interest_level,archived`
+      `/locations?or=(${idFilter})&archived=neq.YES&select=id,location_name,contact_person,direct_phone,business_phone,direct_email,business_email,language,visit_notes,pipeline_stage,interest_level,timestamp,created_at`
     );
     const locMap = new Map<string, any>((locations || []).map((l: any) => [l.id, l]));
 
-    // Only keep the next pending follow-up per location (lowest stage)
+    // Only keep next pending follow-up per location
     const nextPerLocation = new Map<string, any>();
     for (const f of fls) {
       const loc = locMap.get(f.location_id);
       if (!loc) continue;
       if (loc.pipeline_stage === 'active') continue;
       if (f.status !== 'pending') continue;
-      const existing = nextPerLocation.get(f.location_id);
       const stage = f.stage || f.follow_up_number || 1;
+      const existing = nextPerLocation.get(f.location_id);
       if (!existing || stage < (existing.stage || existing.follow_up_number || 1)) {
         nextPerLocation.set(f.location_id, { ...f, stage });
       }
     }
 
     const hydrated = Array.from(nextPerLocation.values()).map((f: any) => {
-        const loc = locMap.get(f.location_id) || {};
-        const contactName = loc.contact_person || loc.location_name || 'there';
-        const phone = parsePhone(loc.direct_phone) || parsePhone(loc.business_phone);
-        return {
-          ...f,
-          message_title: MESSAGES[f.stage]?.title || `Stage ${f.stage}`,
-          message_text: buildMessage(f.stage, contactName),
-          whatsapp_number: phone,
-          location: {
-            id: loc.id,
-            name: loc.location_name,
-            contact_person: loc.contact_person,
-            phone,
-            email: loc.direct_email || loc.business_email,
-            interest_level: loc.interest_level,
-            pipeline_stage: loc.pipeline_stage,
-          },
-        };
-      })
-      .sort((a: any, b: any) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
+      const loc = locMap.get(f.location_id) || {};
+      const contactName = loc.contact_person || loc.location_name || 'there';
+      const phone = parsePhone(loc.direct_phone) || parsePhone(loc.business_phone);
+      const lang = (loc.language || '').toLowerCase().trim();
+      const flow: 'new' | 'reengage' = isOldLead(loc.timestamp, loc.created_at) ? 'reengage' : 'new';
+      const totalStages = flow === 'reengage' ? 4 : 5;
+      const { title, text } = buildMessage(flow, f.stage, lang, contactName);
 
-    // Also include completed ones for the Done tab
+      return {
+        ...f,
+        flow,
+        total_stages: totalStages,
+        message_title: title,
+        message_text: text,
+        whatsapp_number: phone,
+        location: {
+          id: loc.id,
+          name: loc.location_name,
+          contact_person: loc.contact_person,
+          phone,
+          email: loc.direct_email || loc.business_email,
+          interest_level: loc.interest_level,
+          pipeline_stage: loc.pipeline_stage,
+          language: lang,
+        },
+      };
+    }).sort((a: any, b: any) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
+
+    // Completed follow-ups for Done tab
     const completed = fls
       .filter((f: any) => f.status === 'completed' || f.status === 'sent')
       .map((f: any) => {
         const loc = locMap.get(f.location_id) || {};
-        const contactName = loc.contact_person || loc.location_name || 'there';
-        const phone = parsePhone(loc.direct_phone) || parsePhone(loc.business_phone);
         const stage = f.stage || f.follow_up_number || 1;
+        const lang = (loc.language || '').toLowerCase().trim();
+        const flow: 'new' | 'reengage' = isOldLead(loc.timestamp, loc.created_at) ? 'reengage' : 'new';
+        const { title, text } = buildMessage(flow, stage, lang, loc.contact_person || loc.location_name);
         return {
           ...f,
           stage,
-          message_title: MESSAGES[stage]?.title || `Stage ${stage}`,
-          message_text: buildMessage(stage, contactName),
-          whatsapp_number: phone,
+          flow,
+          total_stages: flow === 'reengage' ? 4 : 5,
+          message_title: title,
+          message_text: text,
+          whatsapp_number: parsePhone(loc.direct_phone) || parsePhone(loc.business_phone),
           location: {
             id: loc.id,
             name: loc.location_name,
             contact_person: loc.contact_person,
-            phone,
+            phone: parsePhone(loc.direct_phone) || parsePhone(loc.business_phone),
             email: loc.direct_email || loc.business_email,
             interest_level: loc.interest_level,
             pipeline_stage: loc.pipeline_stage,
+            language: lang,
           },
         };
       });
@@ -139,16 +253,22 @@ export async function POST(request: NextRequest) {
     const { location_id, visited_at } = await request.json();
     if (!location_id) return NextResponse.json({ success: false, error: 'location_id required' }, { status: 400 });
 
-    // Don't create duplicates
     const existing = await fetchFromSupabase(
       `/belarro_v4_follow_up?location_id=eq.${location_id}&status=eq.pending&select=id&limit=1`
     );
     if (existing && existing.length > 0) {
-      return NextResponse.json({ success: false, error: 'Follow-ups already exist for this location' }, { status: 409 });
+      return NextResponse.json({ success: false, error: 'Follow-ups already exist' }, { status: 409 });
     }
 
     const base = new Date(visited_at || new Date()).getTime();
-    const stages = [
+    const old = isOldLead(visited_at, null);
+
+    const stages = old ? [
+      { stage: 1, follow_up_number: 1, follow_up_days: 0,  offset: 0 },
+      { stage: 2, follow_up_number: 2, follow_up_days: 5,  offset: 5  * 24 * 60 * 60 * 1000 },
+      { stage: 3, follow_up_number: 3, follow_up_days: 14, offset: 14 * 24 * 60 * 60 * 1000 },
+      { stage: 4, follow_up_number: 4, follow_up_days: 30, offset: 30 * 24 * 60 * 60 * 1000 },
+    ] : [
       { stage: 1, follow_up_number: 1, follow_up_days: 0,  offset: 2 * 60 * 60 * 1000 },
       { stage: 2, follow_up_number: 2, follow_up_days: 2,  offset: 2  * 24 * 60 * 60 * 1000 },
       { stage: 3, follow_up_number: 3, follow_up_days: 5,  offset: 5  * 24 * 60 * 60 * 1000 },
