@@ -8,10 +8,10 @@ interface ScheduleItem {
   seed_date: string;
   seed_display: string;
   seed_day: 'Tuesday' | 'Friday';
-  quantity_trays: number;
-  order_id: string;
+  order_qty: number;
+  size_name: string;
+  size_grams: number;
   crop_id: string;
-  status: string;
   customer_name: string;
   harvest_display: string;
 }
@@ -69,7 +69,7 @@ function SeedCard({ items, label, dateStr, isToday }: { items: ScheduleItem[]; l
           </div>
           <p className="text-xs text-gray-500">{fmt(dateStr)}</p>
         </div>
-        <span className="text-2xl font-extrabold text-green-600">{items.reduce((s, i) => s + i.quantity_trays, 0)}</span>
+        <span className="text-2xl font-extrabold text-green-600">{items.length} <span className="text-sm font-normal text-gray-500">items</span></span>
       </div>
 
       <div className="divide-y divide-gray-100">
@@ -81,8 +81,8 @@ function SeedCard({ items, label, dateStr, isToday }: { items: ScheduleItem[]; l
                 {item.grow_days}d grow → harvest {item.harvest_display} · {item.customer_name}
               </div>
             </div>
-            <div className="text-right">
-              <div className="font-bold text-gray-900">{item.quantity_trays} <span className="text-xs font-normal text-gray-500">trays</span></div>
+            <div className="text-right font-bold text-gray-900">
+              {item.order_qty}× <span className="text-xs font-normal text-gray-500">{item.size_name || `${item.size_grams}g`}</span>
             </div>
           </div>
         ))}
@@ -212,7 +212,7 @@ export default function ProductionPage() {
                             <span className="ml-3 text-sm text-gray-500">{delivery.customer_name}</span>
                           </div>
                           <span className="text-xs font-semibold text-gray-500 bg-white border border-gray-200 px-2 py-1 rounded-lg">
-                            {delivery.items.reduce((s, i) => s + i.quantity_trays, 0)} trays total
+                            {delivery.items.length} items
                           </span>
                         </div>
 
@@ -224,7 +224,7 @@ export default function ProductionPage() {
                               <th className="px-5 py-2 text-left">Grow Days</th>
                               <th className="px-5 py-2 text-left">Seed On</th>
                               <th className="px-5 py-2 text-left">Seed Day</th>
-                              <th className="px-5 py-2 text-right">Trays</th>
+                              <th className="px-5 py-2 text-right">Order</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-50">
@@ -247,7 +247,9 @@ export default function ProductionPage() {
                                       {item.seed_day}
                                     </span>
                                   </td>
-                                  <td className="px-5 py-3 text-right font-bold text-gray-900">{item.quantity_trays}</td>
+                                  <td className="px-5 py-3 text-right font-bold text-gray-900">
+                                    {item.order_qty}× <span className="text-xs font-normal text-gray-500">{item.size_name || `${item.size_grams}g`}</span>
+                                  </td>
                                 </tr>
                               );
                             })}

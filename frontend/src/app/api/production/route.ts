@@ -103,7 +103,9 @@ export async function GET(request: NextRequest) {
         seed_date: string;
         seed_display: string;
         seed_day: string;
-        quantity_trays: number;
+        order_qty: number;
+        size_name: string;
+        size_grams: number;
       }[];
     }[] = [];
 
@@ -112,21 +114,19 @@ export async function GET(request: NextRequest) {
       const customerName = customer?.name || null;
       if (!customerName) continue; // skip orders with no real customer name
 
-      // Resolve crop + grow days per order line
+      // Resolve crop + grow days + variant per order line
       const lines = customerOrders.map((order: any) => {
         const variant = varMap.get(order.product_variant_id);
         const crop = variant ? cropMap.get(variant.crop_id) : null;
         const proc = crop ? procMap.get(crop.id) : null;
-        // humidity_dome is concurrent — don't add. blackout is sequential — add.
         const growDays = proc
           ? (proc.stack_days || 0) + (proc.blackout_days || 0) + (proc.light_days || 0)
           : 0;
-        return { order, crop, growDays: growDays > 0 ? growDays : null };
-      }).filter((l: any) => l.crop); // skip lines with no crop
+        return { order, crop, variant, growDays: growDays > 0 ? growDays : null };
+      }).filter((l: any) => l.crop);
 
       if (lines.length === 0) continue;
 
-      // Only use grow days we actually know — skip unknowns for harvest calc
       const knownGrowDays = lines.map((l: any) => l.growDays).filter((d: any) => d !== null) as number[];
       const maxGrowDays = knownGrowDays.length > 0 ? Math.max(...knownGrowDays) : 7;
 
@@ -134,17 +134,8 @@ export async function GET(request: NextRequest) {
       earliestRaw.setDate(earliestRaw.getDate() + maxGrowDays);
       const harvestTuesday = nextTuesdayOnOrAfter(earliestRaw);
 
-      // Deduplicate by crop — sum trays for same crop
-      const byCrop = new Map<string, { crop: any; growDays: number | null; trays: number }>();
-      for (const { order, crop, growDays } of lines) {
-        const key = crop.id;
-        if (!byCrop.has(key)) {
-          byCrop.set(key, { crop, growDays, trays: 0 });
-        }
-        byCrop.get(key)!.trays += (order.quantity || 1);
-      }
-
-      const items = Array.from(byCrop.values()).map(({ crop, growDays, trays }) => {
+      // One row per order line (not deduplicated) — show actual order qty and size
+      const items = lines.map(({ order, crop, variant, growDays }: any) => {
         if (growDays === null) {
           return {
             crop_id: crop.id,
@@ -153,12 +144,14 @@ export async function GET(request: NextRequest) {
             seed_date: '',
             seed_display: '⚠️ Set grow days in crop config',
             seed_day: '—',
-            quantity_trays: trays,
+            order_qty: order.quantity || 1,
+            size_name: variant?.size_name || '',
+            size_grams: variant?.size_grams || 0,
           };
         }
         const rawSeedDate = new Date(harvestTuesday);
         rawSeedDate.setDate(rawSeedDate.getDate() - growDays);
-        const useTuesday = growDays >= 10; // 10+ days → Tuesday seed; <10 days → Friday seed
+        const useTuesday = growDays >= 10;
         const seedDate = snapToSeedDay(rawSeedDate, useTuesday);
         return {
           crop_id: crop.id,
@@ -167,7 +160,9 @@ export async function GET(request: NextRequest) {
           seed_date: ymd(seedDate),
           seed_display: fmt(seedDate),
           seed_day: useTuesday ? 'Tuesday' : 'Friday',
-          quantity_trays: trays,
+          order_qty: order.quantity || 1,
+          size_name: variant?.size_name || '',
+          size_grams: variant?.size_grams || 0,
         };
       });
 
