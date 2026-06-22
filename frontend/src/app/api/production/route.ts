@@ -6,14 +6,24 @@ import { requireAuth } from '@/lib/auth';
 const TUESDAY = 2;
 const FRIDAY = 5;
 
-// Snap a date back to the nearest Tuesday or Friday ON OR BEFORE the given date
+// Find the latest Tuesday or Friday that is ON OR BEFORE the given date.
+// This ensures we don't seed too late — we must seed on or before the required date.
 function snapToSeedDay(date: Date, useTuesday: boolean): Date {
   const target = useTuesday ? TUESDAY : FRIDAY;
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
+  // Walk backward until we land on the right day
   while (d.getDay() !== target) {
     d.setDate(d.getDate() - 1);
   }
+  return d;
+}
+
+// Next occurrence of a day (0-6) on or after a given date
+function nextDayOnOrAfter(from: Date, day: number): Date {
+  const d = new Date(from);
+  d.setHours(0, 0, 0, 0);
+  while (d.getDay() !== day) d.setDate(d.getDate() + 1);
   return d;
 }
 
@@ -147,7 +157,7 @@ export async function GET(request: NextRequest) {
         }
         const rawSeedDate = new Date(harvestTuesday);
         rawSeedDate.setDate(rawSeedDate.getDate() - growDays);
-        const useTuesday = growDays >= 10;
+        const useTuesday = growDays >= 10; // 10+ days → Tuesday seed; <10 days → Friday seed
         const seedDate = snapToSeedDay(rawSeedDate, useTuesday);
         return {
           crop_id: crop.id,
