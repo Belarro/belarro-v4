@@ -130,7 +130,6 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify({
           id: crypto.randomUUID(),
           location_id,
-          customer_id: location_id, // keep for backward compat
           follow_up_number: s.follow_up_number,
           follow_up_days: s.follow_up_days,
           stage: s.stage,

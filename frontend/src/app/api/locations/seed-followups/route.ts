@@ -52,7 +52,6 @@ export async function POST(request: NextRequest) {
           body: JSON.stringify({
             id: crypto.randomUUID(),
             location_id: loc.id,
-            customer_id: loc.id,
             follow_up_number: s.follow_up_number,
             follow_up_days: s.follow_up_days,
             stage: s.stage,
