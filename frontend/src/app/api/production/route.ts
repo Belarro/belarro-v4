@@ -71,7 +71,9 @@ export async function GET(request: NextRequest) {
     const readyToHarvest = activeBatches.filter((b: any) => new Date(b.expected_harvest_date) <= today);
 
     // ── PRODUCTION CALENDAR ────────────────────────────────────────────
-    // Group orders by customer — all items for one customer share a delivery date
+    // One delivery group per customer. Within each group, crops are deduplicated
+    // (multiple order lines for the same crop → sum trays).
+
     const customerGroups = new Map<string, any[]>();
     for (const order of (orders || [])) {
       const cid = order.customer_id;
@@ -79,84 +81,98 @@ export async function GET(request: NextRequest) {
       customerGroups.get(cid)!.push(order);
     }
 
-    // For each customer group, compute grow days per item and find harvest Tuesday
-    const schedule: Record<string, {
+    const schedule: {
       harvest_date: string;
       harvest_display: string;
+      customer_id: string;
       customer_name: string;
       items: {
+        crop_id: string;
         crop_name: string;
         grow_days: number;
         seed_date: string;
         seed_display: string;
-        seed_day: string; // 'Tuesday' | 'Friday'
+        seed_day: string;
         quantity_trays: number;
-        order_id: string;
-        crop_id: string;
-        status: string;
       }[];
-    }> = {};
+    }[] = [];
 
     for (const [customerId, customerOrders] of customerGroups) {
       const customer = custMap.get(customerId);
-      const customerName = customer?.name || `Customer ${customerId.slice(0, 6)}`;
+      const customerName = customer?.name || null;
+      if (!customerName) continue; // skip orders with no real customer name
 
-      // Compute grow days for each order line
+      // Resolve crop + grow days per order line
       const lines = customerOrders.map((order: any) => {
         const variant = varMap.get(order.product_variant_id);
         const crop = variant ? cropMap.get(variant.crop_id) : null;
         const proc = crop ? procMap.get(crop.id) : null;
-        const growDays = (proc?.stack_days || 0) + (proc?.growth_env_days || 0) || 7; // default 7 if not set
-        return { order, crop, growDays };
-      });
+        const growDays = proc
+          ? (proc.stack_days || 0) + (proc.growth_env_days || 0)
+          : 0;
+        return { order, crop, growDays: growDays > 0 ? growDays : null };
+      }).filter((l: any) => l.crop); // skip lines with no crop
 
-      // Longest grow time determines the earliest possible harvest Tuesday
-      const maxGrowDays = Math.max(...lines.map(l => l.growDays));
+      if (lines.length === 0) continue;
 
-      // Earliest raw harvest = today + maxGrowDays
+      // Only use grow days we actually know — skip unknowns for harvest calc
+      const knownGrowDays = lines.map((l: any) => l.growDays).filter((d: any) => d !== null) as number[];
+      const maxGrowDays = knownGrowDays.length > 0 ? Math.max(...knownGrowDays) : 7;
+
       const earliestRaw = new Date(today);
       earliestRaw.setDate(earliestRaw.getDate() + maxGrowDays);
       const harvestTuesday = nextTuesdayOnOrAfter(earliestRaw);
-      const harvestKey = ymd(harvestTuesday);
 
-      if (!schedule[harvestKey]) {
-        schedule[harvestKey] = {
-          harvest_date: harvestKey,
-          harvest_display: fmt(harvestTuesday),
-          customer_name: customerName,
-          items: [],
-        };
-      } else {
-        // Multiple customers on the same harvest Tuesday — append customer name
-        schedule[harvestKey].customer_name += `, ${customerName}`;
+      // Deduplicate by crop — sum trays for same crop
+      const byCrop = new Map<string, { crop: any; growDays: number | null; trays: number }>();
+      for (const { order, crop, growDays } of lines) {
+        const key = crop.id;
+        if (!byCrop.has(key)) {
+          byCrop.set(key, { crop, growDays, trays: 0 });
+        }
+        byCrop.get(key)!.trays += (order.quantity || 1);
       }
 
-      for (const { order, crop, growDays } of lines) {
-        // Seed date = harvestTuesday minus growDays
+      const items = Array.from(byCrop.values()).map(({ crop, growDays, trays }) => {
+        if (growDays === null) {
+          return {
+            crop_id: crop.id,
+            crop_name: crop.name_en,
+            grow_days: 0,
+            seed_date: '',
+            seed_display: '⚠️ Set grow days in crop config',
+            seed_day: '—',
+            quantity_trays: trays,
+          };
+        }
         const rawSeedDate = new Date(harvestTuesday);
         rawSeedDate.setDate(rawSeedDate.getDate() - growDays);
-
-        // Snap to seeding day: ≥10 days = Tuesday seeding, <10 days = Friday seeding
         const useTuesday = growDays >= 10;
         const seedDate = snapToSeedDay(rawSeedDate, useTuesday);
-
-        schedule[harvestKey].items.push({
-          crop_name: crop?.name_en || 'Unknown',
+        return {
+          crop_id: crop.id,
+          crop_name: crop.name_en,
           grow_days: growDays,
           seed_date: ymd(seedDate),
           seed_display: fmt(seedDate),
           seed_day: useTuesday ? 'Tuesday' : 'Friday',
-          quantity_trays: order.quantity || 1,
-          order_id: order.id,
-          crop_id: crop?.id || '',
-          status: order.status,
-        });
-      }
+          quantity_trays: trays,
+        };
+      });
+
+      schedule.push({
+        harvest_date: ymd(harvestTuesday),
+        harvest_display: fmt(harvestTuesday),
+        customer_id: customerId,
+        customer_name: customerName,
+        items,
+      });
     }
 
-    // Sort schedule by harvest date
-    const sortedSchedule = Object.values(schedule).sort(
-      (a, b) => new Date(a.harvest_date).getTime() - new Date(b.harvest_date).getTime()
+    // Sort by harvest date, then customer name
+    schedule.sort((a, b) =>
+      new Date(a.harvest_date).getTime() - new Date(b.harvest_date).getTime() ||
+      a.customer_name.localeCompare(b.customer_name)
     );
 
     // What to seed this Tuesday and this Friday
@@ -168,22 +184,38 @@ export async function GET(request: NextRequest) {
     const tuesdayKey = ymd(nextTuesday);
     const fridayKey = ymd(nextFriday);
 
-    // Flatten all schedule items, group by seed_date
-    const bySeedDate = new Map<string, any[]>();
-    for (const delivery of sortedSchedule) {
+    // Flatten all items, group by seed_date (deduplicated by crop across all customers)
+    const bySeedDateMap = new Map<string, Map<string, { crop_name: string; trays: number; customers: string[]; harvest_display: string; grow_days: number }>>();
+    for (const delivery of schedule) {
       for (const item of delivery.items) {
-        if (!bySeedDate.has(item.seed_date)) bySeedDate.set(item.seed_date, []);
-        bySeedDate.get(item.seed_date)!.push({ ...item, customer_name: delivery.customer_name, harvest_display: delivery.harvest_display });
+        if (!item.seed_date) continue;
+        if (!bySeedDateMap.has(item.seed_date)) bySeedDateMap.set(item.seed_date, new Map());
+        const cropMap2 = bySeedDateMap.get(item.seed_date)!;
+        if (!cropMap2.has(item.crop_id)) {
+          cropMap2.set(item.crop_id, { crop_name: item.crop_name, trays: 0, customers: [], harvest_display: delivery.harvest_display, grow_days: item.grow_days });
+        }
+        const entry = cropMap2.get(item.crop_id)!;
+        entry.trays += item.quantity_trays;
+        if (!entry.customers.includes(delivery.customer_name)) entry.customers.push(delivery.customer_name);
       }
     }
+
+    const flatSeedDay = (dateKey: string) =>
+      Array.from((bySeedDateMap.get(dateKey) || new Map()).values()).map(e => ({
+        crop_name: e.crop_name,
+        quantity_trays: e.trays,
+        customer_name: e.customers.join(', '),
+        harvest_display: e.harvest_display,
+        grow_days: e.grow_days,
+      }));
 
     return NextResponse.json({
       success: true,
       data: {
-        schedule: sortedSchedule,
-        seed_today: bySeedDate.get(todayKey) || [],
-        seed_tuesday: bySeedDate.get(tuesdayKey) || [],
-        seed_friday: bySeedDate.get(fridayKey) || [],
+        schedule,
+        seed_today: flatSeedDay(todayKey),
+        seed_tuesday: flatSeedDay(tuesdayKey),
+        seed_friday: flatSeedDay(fridayKey),
         active_batches: activeBatches,
         ready_to_harvest: readyToHarvest,
         today: todayKey,
