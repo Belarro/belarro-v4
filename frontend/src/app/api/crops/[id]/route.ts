@@ -136,17 +136,34 @@ export async function PUT(request: NextRequest, props: Params) {
       }
     }
 
-    // Update variants (soft-delete old, create new).
-    // Data Protection Mandate: NEVER hard-delete. Mark live variants deleted_at
-    // = now() then insert the new set.
-    if (variants && Array.isArray(variants)) {
+    // Update variants — restore existing by size_name to avoid unique constraint
+    if (variants && Array.isArray(variants) && variants.length > 0) {
+      const existingVariants = await fetchFromSupabase(
+        `/belarro_v4_product_variant?crop_id=eq.${id}&select=id,size_name`
+      );
+      const existingMap = new Map<string, string>(
+        (existingVariants || []).map((v: any) => [v.size_name, v.id])
+      );
+
       await fetchFromSupabase(`/belarro_v4_product_variant?crop_id=eq.${id}&deleted_at=is.null`, {
         method: 'PATCH',
         body: JSON.stringify({ deleted_at: new Date().toISOString() }),
       });
 
       for (const variant of variants) {
-        if (variant.size_name && variant.size_grams) {
+        if (!variant.size_name || !variant.size_grams) continue;
+        const existingId = existingMap.get(variant.size_name);
+        if (existingId) {
+          await fetchFromSupabase(`/belarro_v4_product_variant?id=eq.${existingId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({
+              size_grams: variant.size_grams,
+              price_eur: variant.price_eur || null,
+              is_internal: variant.is_internal || false,
+              deleted_at: null,
+            }),
+          });
+        } else {
           await fetchFromSupabase('/belarro_v4_product_variant', {
             method: 'POST',
             body: JSON.stringify({
