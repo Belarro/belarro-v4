@@ -247,7 +247,7 @@ export default function CustomersPage() {
                 : 'border-transparent text-gray-500 hover:text-gray-900'
             }`}
           >
-            {tab}s ({statusCounts[tab]})
+            {tab === 'prospect' ? 'Leads' : tab.charAt(0).toUpperCase() + tab.slice(1) + 's'} ({statusCounts[tab]})
           </button>
         ))}
         <button
@@ -525,7 +525,7 @@ export default function CustomersPage() {
                   onChange={e => setFormData({ ...formData, status: e.target.value as any })}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-green-500 outline-none"
                 >
-                  <option value="prospect">🔵 Prospect — Just contacted, evaluating</option>
+                  <option value="prospect">🔵 Lead — Restaurant you're chasing, not closed yet</option>
                   <option value="active">🟢 Active — Paying customer, orders ongoing</option>
                   <option value="paused">🟡 Paused — Temporarily not ordering, can resume</option>
                   <option value="inactive">⚫ Inactive — Lost customer or rejected</option>
