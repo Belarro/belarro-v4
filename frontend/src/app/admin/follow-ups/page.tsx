@@ -4,7 +4,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 
 interface FollowUp {
   id: string;
-  customer_id: string;
+  location_id: string;
   stage: number;
   follow_up_number: number;
   due_date: string;
@@ -15,14 +15,14 @@ interface FollowUp {
   message_title: string;
   message_text: string;
   whatsapp_number: string | null;
-  customer: {
+  location: {
     id: string;
     name: string;
-    restaurant_name: string | null;
     contact_person: string | null;
     phone: string | null;
-    whatsapp: string | null;
     email: string | null;
+    interest_level: string | null;
+    pipeline_stage: string | null;
   };
 }
 
@@ -101,14 +101,15 @@ export default function FollowUpsPage() {
     }
   };
 
-  const handleConvertToActive = async (customerId: string) => {
+  const handleConvertToActive = async (locationId: string) => {
     if (converting) return;
     setConverting(true);
     try {
-      const res = await fetch(`/api/customers/${customerId}`, {
-        method: 'PUT',
+      // Update pipeline_stage in locations table to 'active'
+      const res = await fetch('/api/locations/convert', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'active' }),
+        body: JSON.stringify({ location_id: locationId }),
       });
       const json = await res.json();
       if (json.success) {
@@ -132,8 +133,8 @@ export default function FollowUpsPage() {
 
   const Card = ({ f }: { f: FollowUp }) => {
     const isOverdue = f.status === 'pending' && new Date(f.due_date) < now;
-    const restaurantName = f.customer.restaurant_name || f.customer.name;
-    const contactName = f.customer.contact_person || f.customer.name;
+    const restaurantName = f.location.name;
+    const contactName = f.location.contact_person || f.location.name;
     const hasWhatsApp = !!(f.whatsapp_number);
 
     return (
@@ -142,7 +143,7 @@ export default function FollowUpsPage() {
         <div className="flex justify-between items-start gap-2">
           <div>
             <div className="font-bold text-gray-900 text-base">{restaurantName}</div>
-            {contactName !== restaurantName && (
+            {contactName && contactName !== restaurantName && (
               <div className="text-xs text-gray-500 mt-0.5">{contactName}</div>
             )}
           </div>
@@ -154,7 +155,7 @@ export default function FollowUpsPage() {
         {/* Contact info */}
         <div className="text-xs text-gray-500 space-y-1">
           {f.whatsapp_number && <div>💬 {f.whatsapp_number}</div>}
-          {f.customer.email && <div>📧 {f.customer.email}</div>}
+          {f.location.email && <div>📧 {f.location.email}</div>}
           <div className={`font-semibold ${isOverdue ? 'text-red-600' : 'text-gray-600'}`}>
             Due: {new Date(f.due_date).toLocaleDateString('en-DE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
             {isOverdue && ' — Overdue'}
@@ -187,7 +188,7 @@ export default function FollowUpsPage() {
                 Log Contact
               </button>
               <button
-                onClick={() => setConvertId(f.customer_id)}
+                onClick={() => setConvertId(f.location_id)}
                 className="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold py-1.5 rounded-lg text-xs transition border border-blue-200"
               >
                 Convert to Active

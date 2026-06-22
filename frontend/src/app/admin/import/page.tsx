@@ -2,6 +2,11 @@
 
 import React, { useState } from 'react';
 
+interface SyncResult {
+  created: number;
+  skipped: number;
+}
+
 interface ParsedRow {
   restaurant_name: string;
   address: string;
@@ -94,6 +99,21 @@ export default function ImportPage() {
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [step, setStep] = useState<'upload' | 'preview' | 'done'>('upload');
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
+
+  const handleSync = async () => {
+    if (syncing) return;
+    setSyncing(true);
+    try {
+      const res = await fetch('/api/locations/seed-followups', { method: 'POST' });
+      const json = await res.json();
+      if (json.success) setSyncResult(json.result);
+      else alert('Sync failed: ' + json.error);
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -133,8 +153,46 @@ export default function ImportPage() {
   return (
     <div className="space-y-6 max-w-5xl">
       <div>
-        <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Import Leads from CSV</h1>
-        <p className="text-sm text-gray-500 mt-1">Upload your Google Sheet export — all leads land in the CRM with follow-ups auto-scheduled</p>
+        <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Leads & Follow-ups Setup</h1>
+        <p className="text-sm text-gray-500 mt-1">Sync your SalesTracker visits into the follow-up system</p>
+      </div>
+
+      {/* Primary: Sync from SalesTracker */}
+      <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
+        <div>
+          <h2 className="text-lg font-bold text-gray-900">Sync from SalesTracker</h2>
+          <p className="text-sm text-gray-500 mt-1">Reads all places you visited from SalesTracker and creates follow-up sequences for each one. Already-synced locations are skipped.</p>
+        </div>
+        {syncResult ? (
+          <div className="flex items-center gap-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div className="text-center">
+              <div className="text-2xl font-extrabold text-green-600">{syncResult.created}</div>
+              <div className="text-xs text-gray-500">Follow-up sequences created</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-extrabold text-gray-400">{syncResult.skipped}</div>
+              <div className="text-xs text-gray-500">Already synced</div>
+            </div>
+            <a href="/admin/follow-ups" className="ml-auto bg-green-600 hover:bg-green-700 text-white font-semibold px-5 py-2 rounded-lg text-sm">
+              Go to Follow-ups →
+            </a>
+          </div>
+        ) : (
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-semibold px-6 py-3 rounded-lg transition"
+          >
+            {syncing ? 'Syncing...' : '🔄 Sync SalesTracker Locations'}
+          </button>
+        )}
+      </div>
+
+      {/* Divider */}
+      <div className="flex items-center gap-4">
+        <div className="flex-1 border-t border-gray-200" />
+        <span className="text-xs text-gray-400 font-semibold">OR — manual CSV import</span>
+        <div className="flex-1 border-t border-gray-200" />
       </div>
 
       {step === 'upload' && (

@@ -32,37 +32,61 @@ function buildMessage(stage: number, contactName: string): string {
   return tpl.replace(/\[Name\]/g, contactName || 'there');
 }
 
+function parsePhone(raw: string | null): string | null {
+  if (!raw) return null;
+  return raw.replace(/\s+/g, '').replace(/^00/, '+');
+}
+
 export async function GET(request: NextRequest) {
   try {
     const auth = await requireAuth();
     if (!auth.ok) return auth.response;
 
-    // Only follow-ups for leads (not active customers)
+    // Fetch all pending follow-ups
     const followups = await fetchFromSupabase(
       '/belarro_v4_follow_up?select=*&order=due_date.asc'
     );
-    const fls = followups || [];
+    const fls = (followups || []).filter((f: any) => f.location_id);
 
-    // Only fetch lead customers
-    const customers = await fetchFromSupabase(
-      "/belarro_v4_customer?status=eq.lead&select=id,name,restaurant_name,phone,whatsapp,email,contact_person,language&deleted_at=is.null"
+    if (fls.length === 0) {
+      return NextResponse.json({ success: true, data: [] });
+    }
+
+    // Fetch all locations that have follow-ups
+    const locationIds = [...new Set(fls.map((f: any) => f.location_id))];
+    const idFilter = locationIds.map((id: any) => `id.eq.${id}`).join(',');
+    const locations = await fetchFromSupabase(
+      `/locations?or=(${idFilter})&select=id,location_name,contact_person,direct_phone,business_phone,direct_email,business_email,language,visit_notes,pipeline_stage,interest_level`
     );
-    const custMap = new Map<string, any>((customers || []).map((c: any) => [c.id, c]));
+    const locMap = new Map<string, any>((locations || []).map((l: any) => [l.id, l]));
 
-    // Only include follow-ups that belong to leads
+    // Only include follow-ups for locations not yet converted (pipeline_stage != 'active')
     const hydrated = fls
-      .filter((f: any) => custMap.has(f.customer_id))
+      .filter((f: any) => {
+        const loc = locMap.get(f.location_id);
+        if (!loc) return false;
+        return loc.pipeline_stage !== 'active';
+      })
       .map((f: any) => {
-        const customer = custMap.get(f.customer_id);
-        const contactName = customer?.contact_person || customer?.name || 'there';
+        const loc = locMap.get(f.location_id) || {};
+        const contactName = loc.contact_person || loc.location_name || 'there';
+        const phone = parsePhone(loc.direct_phone) || parsePhone(loc.business_phone);
         const stage = f.stage || f.follow_up_number || 1;
         return {
           ...f,
           stage,
           message_title: MESSAGES[stage]?.title || `Stage ${stage}`,
           message_text: buildMessage(stage, contactName),
-          whatsapp_number: customer?.whatsapp || customer?.phone || null,
-          customer,
+          whatsapp_number: phone,
+          location: {
+            id: loc.id,
+            name: loc.location_name,
+            contact_person: loc.contact_person,
+            phone,
+            email: loc.direct_email || loc.business_email,
+            interest_level: loc.interest_level,
+            pipeline_stage: loc.pipeline_stage,
+          },
         };
       });
 
@@ -80,14 +104,22 @@ export async function POST(request: NextRequest) {
   try {
     const auth = await requireAuth();
     if (!auth.ok) return auth.response;
-    const { customer_id, first_contact_date } = await request.json();
-    if (!customer_id) return NextResponse.json({ success: false, error: 'customer_id required' }, { status: 400 });
+    const { location_id, visited_at } = await request.json();
+    if (!location_id) return NextResponse.json({ success: false, error: 'location_id required' }, { status: 400 });
 
-    const base = new Date(first_contact_date || new Date());
+    // Don't create duplicates
+    const existing = await fetchFromSupabase(
+      `/belarro_v4_follow_up?location_id=eq.${location_id}&status=eq.pending&select=id&limit=1`
+    );
+    if (existing && existing.length > 0) {
+      return NextResponse.json({ success: false, error: 'Follow-ups already exist for this location' }, { status: 409 });
+    }
+
+    const base = new Date(visited_at || new Date()).getTime();
     const stages = [
-      { stage: 1, follow_up_number: 1, follow_up_days: 0, offset: 2 * 60 * 60 * 1000 },
-      { stage: 2, follow_up_number: 2, follow_up_days: 2, offset: 2 * 24 * 60 * 60 * 1000 },
-      { stage: 3, follow_up_number: 3, follow_up_days: 5, offset: 5 * 24 * 60 * 60 * 1000 },
+      { stage: 1, follow_up_number: 1, follow_up_days: 0,  offset: 2 * 60 * 60 * 1000 },
+      { stage: 2, follow_up_number: 2, follow_up_days: 2,  offset: 2  * 24 * 60 * 60 * 1000 },
+      { stage: 3, follow_up_number: 3, follow_up_days: 5,  offset: 5  * 24 * 60 * 60 * 1000 },
       { stage: 4, follow_up_number: 4, follow_up_days: 14, offset: 14 * 24 * 60 * 60 * 1000 },
       { stage: 5, follow_up_number: 5, follow_up_days: 30, offset: 30 * 24 * 60 * 60 * 1000 },
     ];
@@ -97,11 +129,12 @@ export async function POST(request: NextRequest) {
         method: 'POST',
         body: JSON.stringify({
           id: crypto.randomUUID(),
-          customer_id,
+          location_id,
+          customer_id: location_id, // keep for backward compat
           follow_up_number: s.follow_up_number,
           follow_up_days: s.follow_up_days,
           stage: s.stage,
-          due_date: new Date(base.getTime() + s.offset).toISOString(),
+          due_date: new Date(base + s.offset).toISOString(),
           status: 'pending',
         }),
       });
