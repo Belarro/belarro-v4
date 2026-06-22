@@ -117,9 +117,9 @@ export async function GET(request: NextRequest) {
         const variant = varMap.get(order.product_variant_id);
         const crop = variant ? cropMap.get(variant.crop_id) : null;
         const proc = crop ? procMap.get(crop.id) : null;
-        // blackout and humidity_dome are concurrent — don't add to total
+        // humidity_dome is concurrent — don't add. blackout is sequential — add.
         const growDays = proc
-          ? (proc.stack_days || 0) + (proc.light_days || 0)
+          ? (proc.stack_days || 0) + (proc.blackout_days || 0) + (proc.light_days || 0)
           : 0;
         return { order, crop, growDays: growDays > 0 ? growDays : null };
       }).filter((l: any) => l.crop); // skip lines with no crop
