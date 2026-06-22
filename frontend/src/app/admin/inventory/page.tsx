@@ -16,17 +16,10 @@ interface SeedInventory {
 
 interface Crop { id: string; name_en: string; }
 
-interface PackageInventory {
+interface PackagingStock {
   id: string;
-  variant_id: string;
-  quantity_available: number;
-  reorder_threshold: number;
-  variant: {
-    size_name: string;
-    crop: {
-      name_en: string;
-    } | null;
-  } | null;
+  size_name: string;
+  quantity: number;
 }
 
 interface SampleInventory {
@@ -40,7 +33,7 @@ interface SampleInventory {
 
 export default function InventoryPage() {
   const [seeds, setSeeds] = useState<SeedInventory[]>([]);
-  const [packages, setPackages] = useState<PackageInventory[]>([]);
+  const [packaging, setPackaging] = useState<PackagingStock[]>([]);
   const [samples, setSamples] = useState<SampleInventory[]>([]);
   const [crops, setCrops] = useState<Crop[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,18 +53,29 @@ export default function InventoryPage() {
     reorder_threshold_trays: '20'
   });
 
+  const [showAddPackaging, setShowAddPackaging] = useState(false);
+  const [packagingForm, setPackagingForm] = useState({ size_name: '', quantity: '' });
+  const [pkgEditId, setPkgEditId] = useState<string | null>(null);
+  const [pkgEditQty, setPkgEditQty] = useState('');
+  const [pkgEditMode, setPkgEditMode] = useState<'add' | 'set'>('add');
+
   const fetchInventory = async () => {
     try {
       setLoading(true);
-      const [invRes, cropRes] = await Promise.all([fetch('/api/inventory'), fetch('/api/crops')]);
+      const [invRes, cropRes, pkgRes] = await Promise.all([
+        fetch('/api/inventory'),
+        fetch('/api/crops'),
+        fetch('/api/packaging-stock'),
+      ]);
       const invJson = await invRes.json();
       const cropJson = await cropRes.json();
+      const pkgJson = await pkgRes.json();
       if (invJson.success) {
         setSeeds(invJson.data.seeds || []);
-        setPackages(invJson.data.packages || []);
         setSamples(invJson.data.samples || []);
       }
       if (cropJson.success) setCrops(cropJson.data || []);
+      if (pkgJson.success) setPackaging(pkgJson.data || []);
     } catch (err) {
       console.error('Failed to load inventory:', err);
     } finally {
@@ -100,6 +104,37 @@ export default function InventoryPage() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleAddPackaging = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch('/api/packaging-stock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(packagingForm),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setShowAddPackaging(false);
+        setPackagingForm({ size_name: '', quantity: '' });
+        fetchInventory();
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSavePkgQty = async (id: string) => {
+    const res = await fetch('/api/packaging-stock', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, quantity: parseInt(pkgEditQty) || 0, mode: pkgEditMode }),
+    });
+    const json = await res.json();
+    if (json.success) { setPkgEditId(null); setPkgEditQty(''); fetchInventory(); }
   };
 
   const handleSaveQty = async (type: 'seeds' | 'packages' | 'samples', id: string, currentQty: number) => {
@@ -131,11 +166,15 @@ export default function InventoryPage() {
           <p className="text-sm text-gray-500 mt-1">Manage seed stocks, boxes/containers, and sample materials</p>
         </div>
         {activeTab === 'seeds' && (
-          <button
-            onClick={() => setShowAddSeed(true)}
-            className="bg-green-600 hover:bg-green-700 text-white font-medium px-4 py-2.5 rounded-lg shadow transition"
-          >
+          <button onClick={() => setShowAddSeed(true)}
+            className="bg-green-600 hover:bg-green-700 text-white font-medium px-4 py-2.5 rounded-lg shadow transition">
             + Add Seed
+          </button>
+        )}
+        {activeTab === 'packages' && (
+          <button onClick={() => setShowAddPackaging(true)}
+            className="bg-green-600 hover:bg-green-700 text-white font-medium px-4 py-2.5 rounded-lg shadow transition">
+            + Add Package Size
           </button>
         )}
       </div>
@@ -257,65 +296,60 @@ export default function InventoryPage() {
             <table className="w-full text-sm text-left border-collapse">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100 text-xs uppercase text-gray-500 font-semibold">
-                  <th className="p-4">Packaging Type / Size</th>
-                  <th className="p-4 text-center">Available Stock (Units)</th>
-                  <th className="p-4 text-center">Reorder Threshold</th>
+                  <th className="p-4">Package Size</th>
+                  <th className="p-4 text-center">In Stock (Units)</th>
                   <th className="p-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {packages.map(p => {
-                  const isLow = p.quantity_available < p.reorder_threshold;
-                  return (
-                    <tr key={p.id} className="hover:bg-gray-50">
-                      <td className="p-4 font-semibold text-gray-900">
-                        {p.variant?.crop?.name_en || 'Container'} — {p.variant?.size_name || 'Container 30g'}
-                      </td>
-                      <td className="p-4 text-center">
-                        {editId === p.id ? (
-                          <input
-                            type="number"
-                            value={editQty}
-                            onChange={e => setEditQty(e.target.value)}
-                            className="w-24 px-2 py-1 border border-gray-300 rounded text-center outline-none focus:ring-2 focus:ring-green-500"
-                          />
-                        ) : (
-                          <span className={`font-bold ${isLow ? 'text-amber-600' : 'text-gray-900'}`}>
-                            {p.quantity_available} units
+                {packaging.length === 0 ? (
+                  <tr><td colSpan={3} className="p-8 text-center text-gray-400">No package sizes yet. Click + Add Package Size to start.</td></tr>
+                ) : packaging.map(p => (
+                  <tr key={p.id} className="hover:bg-gray-50">
+                    <td className="p-4 font-semibold text-gray-900">{p.size_name}</td>
+                    <td className="p-4 text-center">
+                      {pkgEditId === p.id ? (
+                        <div className="flex items-center justify-center gap-2">
+                          <span className="text-xs text-gray-500 font-semibold">
+                            {pkgEditMode === 'add' ? `${p.quantity} +` : 'Set to'}
                           </span>
-                        )}
-                      </td>
-                      <td className="p-4 text-center text-gray-500 font-semibold">
-                        {p.reorder_threshold} units
-                      </td>
-                      <td className="p-4 text-right">
-                        {editId === p.id ? (
-                          <div className="space-x-2">
-                            <button
-                              onClick={() => handleSaveQty('packages', p.id, p.quantity_available)}
-                              className="bg-green-600 hover:bg-green-700 text-white font-semibold px-2.5 py-1 rounded text-xs"
-                            >
-                              Save
-                            </button>
-                            <button
-                              onClick={() => setEditId(null)}
-                              className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold px-2.5 py-1 rounded text-xs border border-gray-200"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        ) : (
+                          <input
+                            type="number" min="0" autoFocus
+                            value={pkgEditQty}
+                            onChange={e => setPkgEditQty(e.target.value)}
+                            className="w-20 px-2 py-1 border border-green-400 rounded text-center text-sm outline-none focus:ring-2 focus:ring-green-500"
+                            placeholder="units"
+                          />
+                        </div>
+                      ) : (
+                        <span className="font-bold text-gray-900">{p.quantity} units</span>
+                      )}
+                    </td>
+                    <td className="p-4 text-right">
+                      {pkgEditId === p.id ? (
+                        <div className="flex items-center justify-end gap-2">
+                          <button onClick={() => handleSavePkgQty(p.id)}
+                            className="bg-green-600 hover:bg-green-700 text-white font-semibold px-2.5 py-1 rounded text-xs">Save</button>
+                          <button onClick={() => { setPkgEditId(null); setPkgEditQty(''); }}
+                            className="text-gray-400 hover:text-gray-600 font-bold text-sm">✕</button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-end gap-2">
                           <button
-                            onClick={() => { setEditId(p.id); setEditQty(p.quantity_available.toString()); }}
-                            className="bg-gray-50 hover:bg-gray-100 text-gray-700 font-semibold px-3 py-1.5 rounded-lg border border-gray-200 text-xs"
-                          >
-                            Adjust Stock
+                            onClick={() => { setPkgEditId(p.id); setPkgEditQty(''); setPkgEditMode('add'); }}
+                            className="bg-green-50 hover:bg-green-100 text-green-700 font-semibold px-3 py-1.5 rounded-lg border border-green-200 text-xs">
+                            + Received
                           </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
+                          <button
+                            onClick={() => { setPkgEditId(p.id); setPkgEditQty(p.quantity.toString()); setPkgEditMode('set'); }}
+                            className="bg-gray-50 hover:bg-gray-100 text-gray-600 font-semibold px-3 py-1.5 rounded-lg border border-gray-200 text-xs">
+                            Edit
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           )}
@@ -379,6 +413,48 @@ export default function InventoryPage() {
 
         </div>
       )}
+      {/* Add Package Size Modal */}
+      {showAddPackaging && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm border border-gray-200">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900">Add Package Size</h2>
+              <button onClick={() => setShowAddPackaging(false)} className="text-gray-400 hover:text-gray-600 text-xl font-bold">✕</button>
+            </div>
+            <form onSubmit={handleAddPackaging} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Size Name *</label>
+                <input
+                  type="text" required
+                  value={packagingForm.size_name}
+                  onChange={e => setPackagingForm({ ...packagingForm, size_name: e.target.value })}
+                  placeholder="e.g. 750ml, 2000ml, Container"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-green-500 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Current Stock (units)</label>
+                <input
+                  type="number" min="0"
+                  value={packagingForm.quantity}
+                  onChange={e => setPackagingForm({ ...packagingForm, quantity: e.target.value })}
+                  placeholder="e.g. 100"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-green-500 outline-none"
+                />
+              </div>
+              <div className="pt-4 border-t border-gray-100 flex justify-end gap-3">
+                <button type="button" onClick={() => setShowAddPackaging(false)}
+                  className="bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold px-4 py-2 rounded-lg text-sm">Cancel</button>
+                <button type="submit" disabled={submitting}
+                  className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-semibold px-5 py-2 rounded-lg text-sm shadow">
+                  {submitting ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Add Seed Modal */}
       {showAddSeed && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
