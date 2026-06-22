@@ -47,6 +47,8 @@ interface Crop {
   flavor_de?: string;
   status: 'active' | 'paused';
   photo_url?: string | null;
+  seeds_per_tray_grams?: number | null;
+  yield_per_tray_grams?: number | null;
   procedure?: GrowthProcedure;
   variants?: ProductVariant[];
   created_at?: string;
@@ -78,6 +80,8 @@ export default function AdminCropsPage() {
     flavor_de: '',
     status: 'active' as 'active' | 'paused',
     photo_url: '',
+    seeds_per_tray_grams: '' as string | number,
+    yield_per_tray_grams: '' as string | number,
   });
 
   const [procedure, setProcedure] = useState<GrowthProcedure>({
@@ -154,6 +158,8 @@ export default function AdminCropsPage() {
           flavor_de: crop.flavor_de || '',
           status: crop.status || 'active',
           photo_url: crop.photo_url || '',
+          seeds_per_tray_grams: crop.seeds_per_tray_grams ?? '',
+          yield_per_tray_grams: crop.yield_per_tray_grams ?? '',
         });
         setProcedure(crop.procedure ? {
           soak_enabled: crop.procedure.soak_enabled || false,
@@ -226,6 +232,8 @@ export default function AdminCropsPage() {
         flavor_de: formData.flavor_de || null,
         status: formData.status,
         photo_url: formData.photo_url || null,
+        seeds_per_tray_grams: formData.seeds_per_tray_grams !== '' ? Number(formData.seeds_per_tray_grams) : null,
+        yield_per_tray_grams: formData.yield_per_tray_grams !== '' ? Number(formData.yield_per_tray_grams) : null,
         procedure,
         variants: variants.filter(v => v.size_name && v.size_grams),
       };
@@ -289,7 +297,7 @@ export default function AdminCropsPage() {
     setSelectedCropId(null);
     setIsEditing(true);
     setActiveTab('basics');
-    setFormData({ name_en: '', name_de: '', flavor_en: '', flavor_de: '', status: 'active', photo_url: '' });
+    setFormData({ name_en: '', name_de: '', flavor_en: '', flavor_de: '', status: 'active', photo_url: '', seeds_per_tray_grams: '', yield_per_tray_grams: '' });
     setProcedure({
       soak_enabled: false,
       soak_hours: undefined,
@@ -557,6 +565,36 @@ export default function AdminCropsPage() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg disabled:bg-gray-100 disabled:text-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500"
                       placeholder="z.B. süß, knackig"
                     />
+                  </div>
+
+                  {/* Tray yield info */}
+                  <div className="grid grid-cols-2 gap-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 mb-2">Seeds per Tray (g)</label>
+                      <input
+                        type="number"
+                        value={formData.seeds_per_tray_grams}
+                        onChange={(e) => setFormData({ ...formData, seeds_per_tray_grams: e.target.value })}
+                        disabled={!isEditing}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg disabled:bg-gray-100 disabled:text-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500"
+                        placeholder="e.g. 15"
+                        min="0"
+                        step="0.1"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 mb-2">Yield per Tray (g)</label>
+                      <input
+                        type="number"
+                        value={formData.yield_per_tray_grams}
+                        onChange={(e) => setFormData({ ...formData, yield_per_tray_grams: e.target.value })}
+                        disabled={!isEditing}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg disabled:bg-gray-100 disabled:text-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500"
+                        placeholder="e.g. 120"
+                        min="0"
+                        step="0.1"
+                      />
+                    </div>
                   </div>
 
                   <div>

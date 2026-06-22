@@ -106,6 +106,8 @@ export async function GET(request: NextRequest) {
         order_qty: number;
         size_name: string;
         size_grams: number;
+        trays_needed: number | null;
+        yield_per_tray: number | null;
       }[];
     }[] = [];
 
@@ -134,8 +136,16 @@ export async function GET(request: NextRequest) {
       earliestRaw.setDate(earliestRaw.getDate() + maxGrowDays);
       const harvestTuesday = nextTuesdayOnOrAfter(earliestRaw);
 
-      // One row per order line (not deduplicated) — show actual order qty and size
+      // One row per order line — show actual order qty, size, and trays needed
       const items = lines.map(({ order, crop, variant, growDays }: any) => {
+        const orderQty = order.quantity || 1;
+        const sizeGrams = variant?.size_grams || 0;
+        const totalGramsNeeded = orderQty * sizeGrams;
+        const yieldPerTray = crop.yield_per_tray_grams || null;
+        const traysNeeded = yieldPerTray && totalGramsNeeded > 0
+          ? Math.ceil(totalGramsNeeded / yieldPerTray)
+          : null;
+
         if (growDays === null) {
           return {
             crop_id: crop.id,
@@ -144,9 +154,11 @@ export async function GET(request: NextRequest) {
             seed_date: '',
             seed_display: '⚠️ Set grow days in crop config',
             seed_day: '—',
-            order_qty: order.quantity || 1,
+            order_qty: orderQty,
             size_name: variant?.size_name || '',
-            size_grams: variant?.size_grams || 0,
+            size_grams: sizeGrams,
+            trays_needed: traysNeeded,
+            yield_per_tray: yieldPerTray,
           };
         }
         const rawSeedDate = new Date(harvestTuesday);
@@ -160,9 +172,11 @@ export async function GET(request: NextRequest) {
           seed_date: ymd(seedDate),
           seed_display: fmt(seedDate),
           seed_day: useTuesday ? 'Tuesday' : 'Friday',
-          order_qty: order.quantity || 1,
+          order_qty: orderQty,
           size_name: variant?.size_name || '',
-          size_grams: variant?.size_grams || 0,
+          size_grams: sizeGrams,
+          trays_needed: traysNeeded,
+          yield_per_tray: yieldPerTray,
         };
       });
 
@@ -201,7 +215,7 @@ export async function GET(request: NextRequest) {
           cropMap2.set(item.crop_id, { crop_name: item.crop_name, trays: 0, customers: [], harvest_display: delivery.harvest_display, grow_days: item.grow_days });
         }
         const entry = cropMap2.get(item.crop_id)!;
-        entry.trays += item.quantity_trays;
+        entry.trays += item.trays_needed || 1;
         if (!entry.customers.includes(delivery.customer_name)) entry.customers.push(delivery.customer_name);
       }
     }

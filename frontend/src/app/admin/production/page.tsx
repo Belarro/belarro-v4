@@ -11,6 +11,8 @@ interface ScheduleItem {
   order_qty: number;
   size_name: string;
   size_grams: number;
+  trays_needed: number | null;
+  yield_per_tray: number | null;
   crop_id: string;
   customer_name: string;
   harvest_display: string;
@@ -225,6 +227,7 @@ export default function ProductionPage() {
                               <th className="px-5 py-2 text-left">Seed On</th>
                               <th className="px-5 py-2 text-left">Seed Day</th>
                               <th className="px-5 py-2 text-right">Order</th>
+                              <th className="px-5 py-2 text-right">Trays to Grow</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-50">
@@ -249,6 +252,12 @@ export default function ProductionPage() {
                                   </td>
                                   <td className="px-5 py-3 text-right font-bold text-gray-900">
                                     {item.order_qty}× <span className="text-xs font-normal text-gray-500">{item.size_name || `${item.size_grams}g`}</span>
+                                  </td>
+                                  <td className="px-5 py-3 text-right font-bold text-gray-900">
+                                    {item.trays_needed !== null
+                                      ? <>{item.trays_needed} <span className="text-xs font-normal text-gray-500">trays</span></>
+                                      : <span className="text-xs text-amber-500">Set yield</span>
+                                    }
                                   </td>
                                 </tr>
                               );

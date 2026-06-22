@@ -68,7 +68,7 @@ export async function PUT(request: NextRequest, props: Params) {
         { status: 400 }
       );
     }
-    const { name_en, name_de, flavor_en, flavor_de, status, photo_url, procedure, variants } = body;
+    const { name_en, name_de, flavor_en, flavor_de, status, photo_url, seeds_per_tray_grams, yield_per_tray_grams, procedure, variants } = body;
 
     // Update crop
     const updateData: any = {};
@@ -78,6 +78,8 @@ export async function PUT(request: NextRequest, props: Params) {
     if (flavor_de !== undefined) updateData.flavor_de = flavor_de;
     if (status) updateData.status = status;
     if (photo_url !== undefined) updateData.photo_url = photo_url;
+    if (seeds_per_tray_grams !== undefined) updateData.seeds_per_tray_grams = seeds_per_tray_grams;
+    if (yield_per_tray_grams !== undefined) updateData.yield_per_tray_grams = yield_per_tray_grams;
     updateData.updated_at = new Date().toISOString();
 
     try {
