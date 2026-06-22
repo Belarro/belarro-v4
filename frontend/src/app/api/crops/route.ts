@@ -252,21 +252,41 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    // Update variants (soft-delete old, create new).
-    // Data Protection Mandate: NEVER hard-delete. We mark existing live variants
-    // as deleted_at = now() and insert the new set. History is preserved and the
-    // no-hard-delete DB trigger is respected.
-    if (variants && Array.isArray(variants)) {
+    // Update variants — only if explicitly sent in the request
+    if (variants && Array.isArray(variants) && variants.length > 0) {
+      // Fetch existing variants (including soft-deleted) to avoid unique constraint violations
+      const existingVariants = await fetchFromSupabase(
+        `/belarro_v4_product_variant?crop_id=eq.${id}&select=id,size_name,deleted_at`
+      );
+      const existingMap = new Map<string, string>(
+        (existingVariants || []).map((v: any) => [v.size_name, v.id])
+      );
+
+      // Mark all current live variants as deleted first
       await fetchFromSupabase(`/belarro_v4_product_variant?crop_id=eq.${id}&deleted_at=is.null`, {
         method: 'PATCH',
         body: JSON.stringify({ deleted_at: new Date().toISOString() }),
       });
 
       for (const variant of variants) {
-        if (variant.size_name && variant.size_grams) {
+        if (!variant.size_name || !variant.size_grams) continue;
+        const existingId = existingMap.get(variant.size_name);
+        if (existingId) {
+          // Restore and update the existing record — avoids unique constraint
+          await fetchFromSupabase(`/belarro_v4_product_variant?id=eq.${existingId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({
+              size_grams: variant.size_grams,
+              price_eur: variant.price_eur || null,
+              is_internal: variant.is_internal || false,
+              deleted_at: null,
+            }),
+          });
+        } else {
           await fetchFromSupabase('/belarro_v4_product_variant', {
             method: 'POST',
             body: JSON.stringify({
+              id: crypto.randomUUID(),
               crop_id: id,
               size_name: variant.size_name,
               size_grams: variant.size_grams,
