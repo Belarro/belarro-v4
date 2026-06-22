@@ -35,6 +35,19 @@ export async function POST(request: NextRequest) {
   }
 }
 
+export async function DELETE(request: NextRequest) {
+  try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth.response;
+    const { id } = await request.json();
+    if (!id) return NextResponse.json({ success: false, error: 'id required' }, { status: 400 });
+    await fetchFromSupabase(`/belarro_v4_packaging_stock?id=eq.${id}`, { method: 'DELETE' });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return NextResponse.json({ success: false, error: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 });
+  }
+}
+
 export async function PUT(request: NextRequest) {
   try {
     const auth = await requireAuth();

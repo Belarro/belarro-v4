@@ -116,6 +116,25 @@ export async function POST(request: NextRequest) {
   }
 }
 
+export async function DELETE(request: NextRequest) {
+  try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth.response;
+    const { type, id } = await request.json();
+    if (!type || !id) return NextResponse.json({ success: false, error: 'type and id required' }, { status: 400 });
+
+    let table = '';
+    if (type === 'seeds') table = '/belarro_v4_seed_inventory';
+    else if (type === 'samples') table = '/belarro_v4_sample_inventory';
+    else return NextResponse.json({ success: false, error: 'Invalid type' }, { status: 400 });
+
+    await fetchFromSupabase(`${table}?id=eq.${id}`, { method: 'DELETE' });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return NextResponse.json({ success: false, error: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 });
+  }
+}
+
 export async function PUT(request: NextRequest) {
   try {
     const auth = await requireAuth();

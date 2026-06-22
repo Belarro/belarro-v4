@@ -137,6 +137,26 @@ export default function InventoryPage() {
     if (json.success) { setPkgEditId(null); setPkgEditQty(''); fetchInventory(); }
   };
 
+  const handleDeleteSeed = async (id: string) => {
+    if (!confirm('Delete this seed stock entry?')) return;
+    await fetch('/api/inventory', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'seeds', id }),
+    });
+    fetchInventory();
+  };
+
+  const handleDeletePackaging = async (id: string) => {
+    if (!confirm('Delete this package size?')) return;
+    await fetch('/api/packaging-stock', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    });
+    fetchInventory();
+  };
+
   const handleSaveQty = async (type: 'seeds' | 'packages' | 'samples', id: string, currentQty: number) => {
     try {
       const delta = parseFloat(editQty) || 0;
@@ -281,6 +301,10 @@ export default function InventoryPage() {
                               onClick={() => { setEditId(s.id); setEditQty(s.quantity_grams.toString()); setEditMode('set'); }}
                               className="bg-gray-50 hover:bg-gray-100 text-gray-600 font-semibold px-3 py-1.5 rounded-lg border border-gray-200 text-xs"
                             >Edit</button>
+                            <button
+                              onClick={() => handleDeleteSeed(s.id)}
+                              className="bg-red-50 hover:bg-red-100 text-red-600 font-semibold px-3 py-1.5 rounded-lg border border-red-200 text-xs"
+                            >Delete</button>
                           </div>
                         )}
                       </td>
@@ -344,6 +368,11 @@ export default function InventoryPage() {
                             onClick={() => { setPkgEditId(p.id); setPkgEditQty(p.quantity.toString()); setPkgEditMode('set'); }}
                             className="bg-gray-50 hover:bg-gray-100 text-gray-600 font-semibold px-3 py-1.5 rounded-lg border border-gray-200 text-xs">
                             Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeletePackaging(p.id)}
+                            className="bg-red-50 hover:bg-red-100 text-red-600 font-semibold px-3 py-1.5 rounded-lg border border-red-200 text-xs">
+                            Delete
                           </button>
                         </div>
                       )}
