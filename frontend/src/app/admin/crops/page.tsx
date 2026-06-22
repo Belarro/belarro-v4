@@ -99,6 +99,7 @@ export default function AdminCropsPage() {
   const [packagingSizes, setPackagingSizes] = useState<PackagingSize[]>([]);
   const [editingVariantIdx, setEditingVariantIdx] = useState<number | null>(null);
   const [editingVariant, setEditingVariant] = useState({ size_name: '', size_grams: '', price_eur: '', container_size: '', container_qty: '1' });
+  const [showAddVariantForm, setShowAddVariantForm] = useState(false);
 
   // Fetch packaging sizes for container dropdown
   const fetchPackagingSizes = async () => {
@@ -303,6 +304,7 @@ export default function AdminCropsPage() {
       light_days: undefined,
     });
     setVariants([]);
+    setShowAddVariantForm(false);
   };
 
   const handleAddVariant = () => {
@@ -988,74 +990,91 @@ export default function AdminCropsPage() {
                     </div>
                   )}
 
-                  {/* Add new size form */}
+                  {/* Add new size */}
                   {isEditing && (
-                    <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                      <h3 className="text-sm font-semibold text-gray-900 mb-3">Add New Size</h3>
-                      <div className="space-y-3">
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Size Name</label>
-                          <input
-                            type="text"
-                            placeholder="e.g., 600g"
-                            value={newVariant.size_name}
-                            onChange={(e) => setNewVariant({ ...newVariant, size_name: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Grams (Internal)</label>
-                          <input
-                            type="number"
-                            placeholder="e.g., 600"
-                            value={newVariant.size_grams}
-                            onChange={(e) => setNewVariant({ ...newVariant, size_grams: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Price (€)</label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            placeholder="e.g., 18.50"
-                            value={newVariant.price_eur}
-                            onChange={(e) => setNewVariant({ ...newVariant, price_eur: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Container Size</label>
-                          <select
-                            value={newVariant.container_size}
-                            onChange={(e) => setNewVariant({ ...newVariant, container_size: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                    showAddVariantForm ? (
+                      <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                        <div className="flex justify-between items-center mb-3">
+                          <h3 className="text-sm font-semibold text-gray-900">Add New Size</h3>
+                          <button
+                            onClick={() => { setShowAddVariantForm(false); setNewVariant({ size_name: '', size_grams: '', price_eur: '', container_size: '', container_qty: '1' }); }}
+                            className="text-gray-400 hover:text-gray-600 text-xs"
                           >
-                            <option value="">— None —</option>
-                            {packagingSizes.map(ps => (
-                              <option key={ps.id} value={ps.size_name}>{ps.size_name}</option>
-                            ))}
-                          </select>
+                            Cancel
+                          </button>
                         </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Containers per Order</label>
-                          <input
-                            type="number"
-                            min="1"
-                            placeholder="1"
-                            value={newVariant.container_qty}
-                            onChange={(e) => setNewVariant({ ...newVariant, container_qty: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                          />
+                        <div className="space-y-3">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Size Name</label>
+                            <input
+                              type="text"
+                              placeholder="e.g., 600g"
+                              value={newVariant.size_name}
+                              onChange={(e) => setNewVariant({ ...newVariant, size_name: e.target.value })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Grams (Internal)</label>
+                            <input
+                              type="number"
+                              placeholder="e.g., 600"
+                              value={newVariant.size_grams}
+                              onChange={(e) => setNewVariant({ ...newVariant, size_grams: e.target.value })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Price (€)</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              placeholder="e.g., 18.50"
+                              value={newVariant.price_eur}
+                              onChange={(e) => setNewVariant({ ...newVariant, price_eur: e.target.value })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Container Size</label>
+                            <select
+                              value={newVariant.container_size}
+                              onChange={(e) => setNewVariant({ ...newVariant, container_size: e.target.value })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                            >
+                              <option value="">— None —</option>
+                              {packagingSizes.map(ps => (
+                                <option key={ps.id} value={ps.size_name}>{ps.size_name}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Containers per Order</label>
+                            <input
+                              type="number"
+                              min="1"
+                              placeholder="1"
+                              value={newVariant.container_qty}
+                              onChange={(e) => setNewVariant({ ...newVariant, container_qty: e.target.value })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                            />
+                          </div>
+                          <button
+                            onClick={() => { handleAddVariant(); setShowAddVariantForm(false); }}
+                            className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition"
+                          >
+                            Add Size
+                          </button>
                         </div>
-                        <button
-                          onClick={handleAddVariant}
-                          className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition"
-                        >
-                          Add Size
-                        </button>
                       </div>
-                    </div>
+                    ) : (
+                      <button
+                        onClick={() => setShowAddVariantForm(true)}
+                        className="w-full border-2 border-dashed border-gray-300 hover:border-green-500 text-gray-500 hover:text-green-600 py-2 rounded-lg text-sm font-medium transition"
+                      >
+                        + Add New Size
+                      </button>
+                    )
                   )}
 
                   {variants.length === 0 && !isEditing && (
@@ -1072,6 +1091,8 @@ export default function AdminCropsPage() {
                   <button
                     onClick={() => {
                       setIsEditing(false);
+                      setShowAddVariantForm(false);
+                      setEditingVariantIdx(null);
                       if (isNewCrop) {
                         setIsNewCrop(false);
                         setSelectedCropId(null);
