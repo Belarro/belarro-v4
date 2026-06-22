@@ -148,8 +148,24 @@ export default function FollowUpsPage() {
             )}
           </div>
           <span className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded-full ${STAGE_COLORS[f.stage] || 'bg-gray-100 text-gray-600'}`}>
-            {f.message_title}
+            Stage {f.stage}/5
           </span>
+        </div>
+
+        {/* 5-stage progress dots */}
+        <div className="flex items-center gap-1.5">
+          {[1,2,3,4,5].map(s => (
+            <div key={s} className="flex-1 flex flex-col items-center gap-1">
+              <div className={`w-full h-1.5 rounded-full transition-all ${
+                s < f.stage ? 'bg-green-500' :
+                s === f.stage ? 'bg-green-400 animate-pulse' :
+                'bg-gray-200'
+              }`} />
+              <span className="text-[9px] text-gray-400 font-medium">
+                {s === 1 ? '2h' : s === 2 ? '2d' : s === 3 ? '5d' : s === 4 ? '2w' : '1m'}
+              </span>
+            </div>
+          ))}
         </div>
 
         {/* Contact info */}
