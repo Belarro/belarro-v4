@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
 
     // Fetch all locations that are not active/archived
     const locations = await fetchFromSupabase(
-      `/locations?select=id,location_name,timestamp,created_at&archived=neq.true&pipeline_stage=neq.active`
+      `/locations?select=id,location_name,timestamp,created_at&archived=neq.YES&pipeline_stage=neq.active`
     );
 
     if (!locations || locations.length === 0) {

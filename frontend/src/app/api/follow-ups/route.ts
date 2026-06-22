@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
     const locationIds = [...new Set(fls.map((f: any) => f.location_id))];
     const idFilter = locationIds.map((id: any) => `id.eq.${id}`).join(',');
     const locations = await fetchFromSupabase(
-      `/locations?or=(${idFilter})&select=id,location_name,contact_person,direct_phone,business_phone,direct_email,business_email,language,visit_notes,pipeline_stage,interest_level`
+      `/locations?or=(${idFilter})&archived=neq.YES&select=id,location_name,contact_person,direct_phone,business_phone,direct_email,business_email,language,visit_notes,pipeline_stage,interest_level,archived`
     );
     const locMap = new Map<string, any>((locations || []).map((l: any) => [l.id, l]));
 
