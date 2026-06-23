@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
       activeCrops = nonDeletedCrops.filter((c: any) => c.status === 'active').length;
 
       // Fetch customers
-      const customers = await fetchFromSupabase('/belarro_v4_customer?select=id,name,status,created_at');
+      const customers = await fetchFromSupabase('/belarro_v4_customer?deleted_at=is.null&select=id,name,status,created_at');
       const custs = customers || [];
       totalCustomers = custs.length;
       activeCustomers = custs.filter((c: any) => c.status === 'active').length;
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
 
       // Fetch variants and orders to calculate values
       const [orders, variants] = await Promise.all([
-        fetchFromSupabase('/belarro_v4_order?select=*'),
+        fetchFromSupabase('/belarro_v4_order?deleted_at=is.null&select=*'),
         fetchFromSupabase('/belarro_v4_product_variant?select=id,price_eur,size_name,crop_id')
       ]);
 
