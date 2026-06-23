@@ -51,6 +51,7 @@ export default function OrdersPage() {
   const [editQty, setEditQty] = useState<Record<string, string>>({});
   const [editFreq, setEditFreq] = useState<Record<string, 'weekly' | 'biweekly'>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [pausingId, setPausingId] = useState<string | null>(null);
 
   const fetchOrders = async () => {
     try {
@@ -188,6 +189,24 @@ export default function OrdersPage() {
     }
   };
 
+  const handleTogglePause = async (customerId: string, currentlyPaused: boolean) => {
+    setPausingId(customerId);
+    try {
+      const customerLines = orders.filter(o => o.customer_id === customerId);
+      const newStatus = currentlyPaused ? 'active' : 'paused';
+      await Promise.all(customerLines.map(line =>
+        fetch(`/api/orders/${line.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus }),
+        })
+      ));
+      await fetchOrders();
+    } finally {
+      setPausingId(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -224,16 +243,30 @@ export default function OrdersPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {filtered.map(({ customer, lines }) => (
-            <div key={customer.id} className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-              <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border-b border-gray-100">
-                <span className="font-bold text-gray-900 text-base">{customer.restaurant_name || customer.name}</span>
-                <button
-                  onClick={() => openEdit({ customer, lines })}
-                  className="text-sm font-semibold text-white bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded-lg transition"
-                >
-                  Edit
-                </button>
+          {filtered.map(({ customer, lines }) => {
+            const isPaused = lines.length > 0 && lines.every(l => (l as any).status === 'paused');
+            return (
+            <div key={customer.id} className={`bg-white border rounded-xl shadow-sm overflow-hidden ${isPaused ? 'border-amber-300 opacity-75' : 'border-gray-200'}`}>
+              <div className={`flex items-center justify-between px-5 py-3 border-b ${isPaused ? 'bg-amber-50 border-amber-100' : 'bg-gray-50 border-gray-100'}`}>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-gray-900 text-base">{customer.restaurant_name || customer.name}</span>
+                  {isPaused && <span className="text-xs font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">Paused</span>}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleTogglePause(customer.id, isPaused)}
+                    disabled={pausingId === customer.id}
+                    className={`text-sm font-semibold px-3 py-1.5 rounded-lg transition disabled:opacity-50 ${isPaused ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-300'}`}
+                  >
+                    {pausingId === customer.id ? '...' : isPaused ? 'Resume' : 'Pause'}
+                  </button>
+                  <button
+                    onClick={() => openEdit({ customer, lines })}
+                    className="text-sm font-semibold text-white bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded-lg transition"
+                  >
+                    Edit
+                  </button>
+                </div>
               </div>
               <table className="w-full text-sm">
                 <thead>
@@ -261,7 +294,7 @@ export default function OrdersPage() {
                 </tbody>
               </table>
             </div>
-          ))}
+          );})}
         </div>
       )}
 
