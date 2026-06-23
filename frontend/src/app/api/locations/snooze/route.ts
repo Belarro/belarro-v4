@@ -37,8 +37,6 @@ export async function POST(request: NextRequest) {
         follow_up_days: SNOOZE_DAYS,
         due_date: wakeDate.toISOString(),
         status: 'pending',
-        flow: 'reengage',
-        total_stages: 4,
       }),
     });
 
