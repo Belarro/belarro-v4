@@ -168,7 +168,7 @@ export async function GET(request: NextRequest) {
     for (const f of fls) {
       const loc = locMap.get(f.location_id);
       if (!loc) continue;
-      if (loc.pipeline_stage === 'active') continue;
+      if (loc.pipeline_stage === 'active' || loc.pipeline_stage === 'snoozed') continue;
       if (f.status !== 'pending') continue;
       const stage = f.stage || f.follow_up_number || 1;
       const existing = nextPerLocation.get(f.location_id);
@@ -206,35 +206,42 @@ export async function GET(request: NextRequest) {
       };
     }).sort((a: any, b: any) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
 
-    // Completed follow-ups for Done tab
-    const completed = fls
-      .filter((f: any) => f.status === 'completed' || f.status === 'sent')
-      .map((f: any) => {
-        const loc = locMap.get(f.location_id) || {};
-        const stage = f.stage || f.follow_up_number || 1;
-        const lang = (loc.language || '').toLowerCase().trim();
-        const flow: 'new' | 'reengage' = isOldLead(loc.timestamp, loc.created_at) ? 'reengage' : 'new';
-        const { title, text } = buildMessage(flow, stage, lang, loc.contact_person || loc.location_name);
-        return {
-          ...f,
-          stage,
-          flow,
-          total_stages: flow === 'reengage' ? 4 : 5,
-          message_title: title,
-          message_text: text,
-          whatsapp_number: parsePhone(loc.direct_phone) || parsePhone(loc.business_phone),
-          location: {
-            id: loc.id,
-            name: loc.location_name,
-            contact_person: loc.contact_person,
-            phone: parsePhone(loc.direct_phone) || parsePhone(loc.business_phone),
-            email: loc.direct_email || loc.business_email,
-            interest_level: loc.interest_level,
-            pipeline_stage: loc.pipeline_stage,
-            language: lang,
-          },
-        };
-      });
+    // Completed follow-ups for Done tab — one per location (most recent)
+    const latestCompletedPerLocation = new Map<string, any>();
+    for (const f of fls) {
+      if (f.status !== 'completed' && f.status !== 'sent') continue;
+      if (!locMap.has(f.location_id)) continue;
+      const stage = f.stage || f.follow_up_number || 1;
+      const existing = latestCompletedPerLocation.get(f.location_id);
+      if (!existing || stage > (existing.stage || existing.follow_up_number || 1)) {
+        latestCompletedPerLocation.set(f.location_id, { ...f, stage });
+      }
+    }
+
+    const completed = Array.from(latestCompletedPerLocation.values()).map((f: any) => {
+      const loc = locMap.get(f.location_id) || {};
+      const lang = (loc.language || '').toLowerCase().trim();
+      const flow: 'new' | 'reengage' = isOldLead(loc.timestamp, loc.created_at) ? 'reengage' : 'new';
+      const { title, text } = buildMessage(flow, f.stage, lang, loc.contact_person || loc.location_name);
+      return {
+        ...f,
+        flow,
+        total_stages: flow === 'reengage' ? 4 : 5,
+        message_title: title,
+        message_text: text,
+        whatsapp_number: parsePhone(loc.direct_phone) || parsePhone(loc.business_phone),
+        location: {
+          id: loc.id,
+          name: loc.location_name,
+          contact_person: loc.contact_person,
+          phone: parsePhone(loc.direct_phone) || parsePhone(loc.business_phone),
+          email: loc.direct_email || loc.business_email,
+          interest_level: loc.interest_level,
+          pipeline_stage: loc.pipeline_stage,
+          language: lang,
+        },
+      };
+    });
 
     return NextResponse.json({ success: true, data: [...hydrated, ...completed] });
   } catch (error) {
