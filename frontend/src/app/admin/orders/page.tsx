@@ -18,7 +18,7 @@ interface OrderLine {
   } | null;
 }
 
-interface Customer { id: string; name: string }
+interface Customer { id: string; name: string; restaurant_name?: string }
 interface Crop {
   id: string;
   name_en: string;
