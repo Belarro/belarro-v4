@@ -2,15 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { fetchFromSupabase } from '@/lib/supabase';
 import { requireAuth } from '@/lib/auth';
 
-const SNOOZE_DAYS = 90;
-
 export async function POST(request: NextRequest) {
   try {
     const auth = await requireAuth();
     if (!auth.ok) return auth.response;
 
-    const { location_id } = await request.json();
+    const { location_id, days } = await request.json();
     if (!location_id) return NextResponse.json({ success: false, error: 'location_id required' }, { status: 400 });
+    const SNOOZE_DAYS = [30, 60, 90].includes(days) ? days : 90;
 
     // 1. Mark location as snoozed
     await fetchFromSupabase(`/locations?id=eq.${location_id}`, {

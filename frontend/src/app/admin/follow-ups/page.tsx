@@ -64,6 +64,7 @@ export default function FollowUpsPage() {
   const [convertId, setConvertId] = useState<string | null>(null);
   const [converting, setConverting] = useState(false);
   const [snoozeId, setSnoozeId] = useState<string | null>(null);
+  const [snoozeDays, setSnoozeDays] = useState(90);
   const [snoozing, setSnoozing] = useState(false);
   const [snoozeSuccess, setSnoozeSuccess] = useState<string | null>(null);
 
@@ -147,7 +148,7 @@ export default function FollowUpsPage() {
       const res = await fetch('/api/locations/snooze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ location_id: locationId }),
+        body: JSON.stringify({ location_id: locationId, days: snoozeDays }),
       });
       const json = await res.json();
       if (json.success) {
@@ -469,9 +470,18 @@ export default function FollowUpsPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm border border-gray-200 p-6">
             <h2 className="text-lg font-bold text-gray-900 mb-2">Not interested right now?</h2>
-            <p className="text-sm text-gray-600 mb-6">
-              We'll pause all follow-ups and automatically remind you to reach out again in <strong>90 days</strong> with a fresh message.
-            </p>
+            <p className="text-sm text-gray-600 mb-4">Pause all follow-ups and remind you again in:</p>
+            <div className="flex gap-2 mb-6">
+              {[30, 60, 90].map(d => (
+                <button
+                  key={d}
+                  onClick={() => setSnoozeDays(d)}
+                  className={`flex-1 py-2 rounded-lg text-sm font-semibold border transition ${snoozeDays === d ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-gray-700 border-gray-200 hover:border-amber-400'}`}
+                >
+                  {d} days
+                </button>
+              ))}
+            </div>
             <div className="flex gap-3">
               <button onClick={() => setSnoozeId(null)}
                 className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-2 rounded-lg text-sm">
@@ -481,7 +491,7 @@ export default function FollowUpsPage() {
                 onClick={() => handleSnooze(snoozeId)}
                 disabled={snoozing}
                 className="flex-1 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-semibold py-2 rounded-lg text-sm">
-                {snoozing ? 'Saving...' : 'Snooze 90 days'}
+                {snoozing ? 'Saving...' : `Snooze ${snoozeDays} days`}
               </button>
             </div>
           </div>
