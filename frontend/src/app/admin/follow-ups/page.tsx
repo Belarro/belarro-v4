@@ -100,6 +100,8 @@ export default function FollowUpsPage() {
   const [logForm, setLogForm] = useState({ sent_via: 'whatsapp', notes: '' });
   const [submitting, setSubmitting] = useState(false);
   const [confirmSent, setConfirmSent] = useState<{ followup: FollowUp; via: string } | null>(null);
+  // Tracks which channels have been sent per follow-up id: { [id]: Set<'whatsapp'|'email'> }
+  const [sentChannels, setSentChannels] = useState<Record<string, Set<string>>>({});
 
   const [convertId, setConvertId] = useState<string | null>(null);
   const [converting, setConverting] = useState(false);
@@ -237,12 +239,23 @@ export default function FollowUpsPage() {
     }
   };
 
+  const markChannelSent = (followup: FollowUp, via: string) => {
+    setSentChannels(prev => {
+      const current = new Set(prev[followup.id] || []);
+      current.add(via);
+      return { ...prev, [followup.id]: current };
+    });
+    setShowMessage(false);
+    setSelected(null);
+  };
+
   const autoLog = async (followup: FollowUp, via: string) => {
     await fetch(`/api/follow-ups/${followup.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'completed', sent_via: via, notes: '' }),
     });
+    setSentChannels(prev => { const n = { ...prev }; delete n[followup.id]; return n; });
     setShowMessage(false);
     setSelected(null);
     fetchFollowups();
@@ -263,6 +276,10 @@ export default function FollowUpsPage() {
     const contactName = f.location.contact_person || f.location.name;
     const landline = isLandline(f.whatsapp_number || f.location.phone);
     const hasWhatsApp = !!(f.whatsapp_number) && !landline;
+    const sent = sentChannels[f.id] || new Set<string>();
+    const waSent = sent.has('whatsapp');
+    const emailSent = sent.has('email');
+    const anySent = waSent || emailSent;
 
     return (
       <div className={`bg-white border rounded-xl p-5 shadow-sm flex flex-col gap-4 hover:shadow-md transition ${isOverdue ? 'border-red-300' : 'border-gray-200'}`}>
@@ -326,25 +343,33 @@ export default function FollowUpsPage() {
         {/* Actions */}
         {f.status === 'pending' && (
           <div className="flex flex-col gap-2">
-            {/* Primary contact buttons */}
+            {/* Send buttons — with checkmarks once sent */}
             <div className="flex gap-2">
-              {f.whatsapp_number && !landline ? (
+              {hasWhatsApp && (
                 <button
                   onClick={() => { setSelected(f); setShowMessage(true); }}
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg text-sm transition flex items-center justify-center gap-1.5"
+                  className={`flex-1 font-semibold py-2 rounded-lg text-sm transition flex items-center justify-center gap-1.5 ${
+                    waSent
+                      ? 'bg-green-100 text-green-700 border border-green-300'
+                      : 'bg-green-600 hover:bg-green-700 text-white'
+                  }`}
                 >
-                  💬 WhatsApp
+                  {waSent ? '✓ WhatsApp' : '💬 WhatsApp'}
                 </button>
-              ) : null}
-              {f.location.email ? (
+              )}
+              {f.location.email && (
                 <button
                   onClick={() => { setSelected(f); setShowMessage(true); }}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg text-sm transition flex items-center justify-center gap-1.5"
+                  className={`flex-1 font-semibold py-2 rounded-lg text-sm transition flex items-center justify-center gap-1.5 ${
+                    emailSent
+                      ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white'
+                  }`}
                 >
-                  📧 Email
+                  {emailSent ? '✓ Email' : '📧 Email'}
                 </button>
-              ) : null}
-              {!f.whatsapp_number && !f.location.email && (
+              )}
+              {!hasWhatsApp && !f.location.email && (
                 <button
                   onClick={() => { setSelected(f); setShowMessage(true); }}
                   className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 rounded-lg text-sm transition"
@@ -353,6 +378,16 @@ export default function FollowUpsPage() {
                 </button>
               )}
             </div>
+
+            {/* Done with stage — appears once at least one channel sent */}
+            {anySent && (
+              <button
+                onClick={() => autoLog(f, Array.from(sent).join('+'))}
+                className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2.5 rounded-lg text-sm transition shadow"
+              >
+                ✓ Done — move to next stage
+              </button>
+            )}
 
             <div className="flex gap-2">
               <button
@@ -651,7 +686,7 @@ export default function FollowUpsPage() {
               </button>
               <button
                 onClick={() => {
-                  autoLog(confirmSent.followup, confirmSent.via);
+                  markChannelSent(confirmSent.followup, confirmSent.via);
                   setConfirmSent(null);
                 }}
                 className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg text-sm shadow"
