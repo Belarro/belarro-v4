@@ -157,7 +157,7 @@ export default function AdminCropsPage() {
 
   const loadCropData = async (cropId: string) => {
     try {
-      const res = await fetch(`/api/crops?id=${cropId}`);
+      const res = await fetch(`/api/crops/${cropId}`);
       const json = await res.json();
       if (json.success && json.data) {
         const crop = json.data;
@@ -265,10 +265,11 @@ export default function AdminCropsPage() {
         showToast(isNewCrop ? 'Crop created' : 'Crop updated', 'success');
         setIsNewCrop(false);
         setIsEditing(false);
+        const savedId = isNewCrop ? json.data.id : selectedCropId;
         if (isNewCrop) {
           setSelectedCropId(json.data.id);
         }
-        await fetchCrops();
+        await Promise.all([fetchCrops(), loadCropData(savedId!)]);
       } else {
         showToast(json.error || 'Failed to save', 'error');
       }
