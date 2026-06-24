@@ -25,6 +25,7 @@ interface FollowUp {
     email: string | null;
     interest_level: string | null;
     pipeline_stage: string | null;
+    sales_rep: string | null;
   };
 }
 
@@ -60,6 +61,7 @@ interface Visit {
   notes: string | null;
   interest_level: string | null;
   pipeline_stage: string | null;
+  sales_rep: string | null;
 }
 
 const INTEREST_COLORS: Record<string, string> = {
@@ -295,6 +297,12 @@ export default function FollowUpsPage() {
             Due: {new Date(f.due_date).toLocaleDateString('en-DE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
             {isOverdue && ' — Overdue'}
           </div>
+          {f.location.sales_rep && (
+            <div className="flex items-center gap-1 mt-1">
+              <span className="text-gray-400">👤</span>
+              <span className="font-semibold text-gray-700">{f.location.sales_rep}</span>
+            </div>
+          )}
         </div>
 
         {/* Previous notes */}
@@ -419,6 +427,7 @@ export default function FollowUpsPage() {
                 <tr className="bg-gray-50 border-b border-gray-200 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                   <th className="px-4 py-3">Restaurant</th>
                   <th className="px-4 py-3">Contact</th>
+                  <th className="px-4 py-3">Rep</th>
                   <th className="px-4 py-3">Visited</th>
                   <th className="px-4 py-3">Interest</th>
                   <th className="px-4 py-3">Stage</th>
@@ -435,6 +444,11 @@ export default function FollowUpsPage() {
                     <td className="px-4 py-3">
                       <div className="text-gray-700">{v.contact_person || '—'}</div>
                       {v.email && <div className="text-xs text-gray-400 mt-0.5">{v.email}</div>}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {v.sales_rep ? (
+                        <span className="text-xs font-semibold text-gray-700 bg-gray-100 px-2 py-0.5 rounded-full">{v.sales_rep}</span>
+                      ) : <span className="text-gray-400">—</span>}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-gray-600">
                       {parseVisitDate(v.visited_at)

@@ -3,9 +3,9 @@ import { fetchFromSupabase } from '@/lib/supabase';
 import { requireAuth } from '@/lib/auth';
 
 const CHEF_PAGE = 'https://belarro.com/for-chefs';
-const OLD_LEAD_DAYS = 60;
+const OLD_LEAD_DAYS = 30;
 
-// ─── NEW LEAD FLOW (visited < 60 days ago) ───────────────────────────────────
+// ─── NEW LEAD FLOW (visited < 30 days ago) ───────────────────────────────────
 
 const NEW_EN: Record<number, { title: string; template: string }> = {
   1: {
@@ -53,13 +53,13 @@ const NEW_DE: Record<number, { title: string; template: string }> = {
   },
 };
 
-// ─── RE-ENGAGE FLOW (visited > 60 days ago) ──────────────────────────────────
+// ─── RE-ENGAGE FLOW (visited > 30 days ago) ──────────────────────────────────
 // Stage numbers: 1=Re-Engage, 2=Follow Up, 3=Easy Yes, 4=Open Door
 
 const REENGAGE_EN: Record<number, { title: string; template: string }> = {
   1: {
     title: 'Re-Engage',
-    template: `Hello [Name],\n\nRon from Belarro. We stopped by a while back and introduced ourselves and our microgreens.\n\nWe never heard back and we still wish to work with you. Since we last spoke we have grown our variety selection and would love the chance to show you what we can bring to your kitchen.\n\nWe grow to order, harvest the morning of delivery, and our greens stay fresh for 7 to 10 days. No delivery fees, no minimum order. Even one box, we deliver.\n\nHere is our full selection:\n\n${CHEF_PAGE}\n\nRon from Belarro`,
+    template: `Hi [Name], Ron from Belarro. Berlin's precision indoor farm for professional kitchens. I stopped by [Restaurant] a while back and we're finally following up properly.\n\nWe've expanded significantly. We now grow 25+ varieties of microgreens, all harvested the morning of delivery. Unlike imported greens that spend days in transit, ours go straight from Prenzlauer Berg to your kitchen.\n\nEvery Tuesday\nNo delivery fees\nNo minimum order\n\nWant me to send over our current price list, or would you like some fresh samples next time I'm in your area?\n\nRon from Belarro`,
   },
   2: {
     title: 'Re-Engage Follow Up (5 days)',
@@ -78,7 +78,7 @@ const REENGAGE_EN: Record<number, { title: string; template: string }> = {
 const REENGAGE_DE: Record<number, { title: string; template: string }> = {
   1: {
     title: 'Re-Engage',
-    template: `Hallo [Name],\n\nRon von Belarro. Wir waren vor einer Weile bei Ihnen und haben uns und unsere Microgreens vorgestellt.\n\nWir haben nie eine Rückmeldung erhalten und möchten dennoch gerne mit Ihnen zusammenarbeiten. Seit unserem letzten Gespräch haben wir unser Sortenangebot erweitert und würden uns freuen, Ihnen zu zeigen, was wir für Ihre Küche leisten können.\n\nWir wachsen auf Bestellung, ernten am Morgen der Lieferung, und unsere Microgreens bleiben 7 bis 10 Tage frisch. Keine Lieferkosten, keine Mindestbestellung. Auch eine einzelne Box liefern wir.\n\nHier ist unsere vollständige Auswahl:\n\n${CHEF_PAGE}\n\nRon von Belarro`,
+    template: `Hallo [Name], Ron von Belarro. Berlins Präzisions-Indoorfarm für professionelle Küchen. Ich war vor einer Weile bei [Restaurant] und melde mich jetzt endlich richtig zurück.\n\nWir haben uns stark weiterentwickelt. Wir bauen jetzt 25+ Sorten Microgreens an, alle am Morgen der Lieferung geerntet. Anders als importierte Greens, die tagelang unterwegs sind, kommen unsere direkt aus Prenzlauer Berg zu Ihnen.\n\nJeden Dienstag\nKeine Lieferkosten\nKeine Mindestbestellung\n\nSoll ich Ihnen unsere aktuelle Preisliste schicken, oder möchten Sie beim nächsten Mal, wenn ich in Ihrer Nähe bin, frische Muster probieren?\n\nRon von Belarro`,
   },
   2: {
     title: 'Re-Engage Follow Up (5 Tage)',
@@ -98,30 +98,13 @@ const REENGAGE_DE: Record<number, { title: string; template: string }> = {
 
 function buildMessage(flow: 'new' | 'reengage', stage: number, lang: string, contactName: string): { title: string; text: string } {
   const name = contactName || 'there';
-  const isDE = lang === 'de';
-  const isBilingual = !lang || lang === '';
+  const isEN = lang === 'en';
 
   if (flow === 'reengage') {
-    const en = REENGAGE_EN[stage] || REENGAGE_EN[1];
-    const de = REENGAGE_DE[stage] || REENGAGE_DE[1];
-    if (isBilingual) {
-      return {
-        title: en.title,
-        text: en.template.replace(/\[Name\]/g, name) + '\n\n---\n\n' + de.template.replace(/\[Name\]/g, name),
-      };
-    }
-    const msg = isDE ? de : en;
+    const msg = isEN ? (REENGAGE_EN[stage] || REENGAGE_EN[1]) : (REENGAGE_DE[stage] || REENGAGE_DE[1]);
     return { title: msg.title, text: msg.template.replace(/\[Name\]/g, name) };
   } else {
-    const en = NEW_EN[stage] || NEW_EN[1];
-    const de = NEW_DE[stage] || NEW_DE[1];
-    if (isBilingual) {
-      return {
-        title: en.title,
-        text: en.template.replace(/\[Name\]/g, name) + '\n\n---\n\n' + de.template.replace(/\[Name\]/g, name),
-      };
-    }
-    const msg = isDE ? de : en;
+    const msg = isEN ? (NEW_EN[stage] || NEW_EN[1]) : (NEW_DE[stage] || NEW_DE[1]);
     return { title: msg.title, text: msg.template.replace(/\[Name\]/g, name) };
   }
 }
@@ -159,7 +142,7 @@ export async function GET(request: NextRequest) {
     const locationIds = [...new Set(fls.map((f: any) => f.location_id))];
     const idFilter = locationIds.map((id: any) => `id.eq.${id}`).join(',');
     const locations = await fetchFromSupabase(
-      `/locations?or=(${idFilter})&archived=neq.YES&select=id,location_name,contact_person,direct_phone,business_phone,direct_email,business_email,language,visit_notes,pipeline_stage,interest_level,timestamp,created_at`
+      `/locations?or=(${idFilter})&archived=neq.YES&select=id,location_name,contact_person,direct_phone,business_phone,direct_email,business_email,language,visit_notes,pipeline_stage,interest_level,timestamp,created_at,sales_rep`
     );
     const locMap = new Map<string, any>((locations || []).map((l: any) => [l.id, l]));
 
@@ -203,6 +186,7 @@ export async function GET(request: NextRequest) {
           pipeline_stage: loc.pipeline_stage,
           language: lang,
           visited_at: loc.timestamp || loc.created_at || null,
+          sales_rep: loc.sales_rep || null,
         },
       };
     }).sort((a: any, b: any) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
