@@ -111,6 +111,7 @@ export default function FollowUpsPage() {
   const [snoozing, setSnoozing] = useState(false);
   const [snoozeSuccess, setSnoozeSuccess] = useState<string | null>(null);
   const [replying, setReplying] = useState<string | null>(null); // followup id being marked as replied
+  const [highlightId, setHighlightId] = useState<string | null>(null);
 
   const fetchFollowups = async () => {
     try {
@@ -315,7 +316,7 @@ export default function FollowUpsPage() {
     const anySent = waSent || emailSent;
 
     return (
-      <div id={`card-${f.id}`} className={`bg-white border rounded-xl p-5 shadow-sm flex flex-col gap-4 hover:shadow-md transition ${isOverdue ? 'border-red-300' : 'border-gray-200'}`}>
+      <div id={`card-${f.id}`} className={`bg-white border rounded-xl p-5 shadow-sm flex flex-col gap-4 hover:shadow-md transition ${highlightId === f.id ? 'border-green-500 ring-2 ring-green-400' : isOverdue ? 'border-red-300' : 'border-gray-200'}`}>
         {/* Header */}
         <div className="flex justify-between items-start gap-2">
           <div>
@@ -562,12 +563,16 @@ export default function FollowUpsPage() {
                     key={v.location_id}
                     className="hover:bg-gray-50 transition cursor-pointer"
                     onClick={() => {
-                      const match = followups.find(f => f.location_id === v.location_id && f.status === 'pending');
+                      const match = followups.find(f => f.location_id === v.location_id && (f.status === 'pending' || f.status === 'replied'));
                       if (match) {
-                        setActiveTab('today');
+                        const dueDate = new Date(match.due_date);
+                        const tab = match.status === 'replied' ? 'warm' : dueDate <= todayEnd ? 'today' : 'pending';
+                        setActiveTab(tab as any);
+                        setHighlightId(match.id);
                         setTimeout(() => {
                           document.getElementById(`card-${match.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        }, 100);
+                          setTimeout(() => setHighlightId(null), 2000);
+                        }, 150);
                       }
                     }}
                   >
