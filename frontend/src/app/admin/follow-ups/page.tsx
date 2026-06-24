@@ -124,7 +124,7 @@ export default function FollowUpsPage() {
   useEffect(() => { fetchFollowups(); }, []);
 
   useEffect(() => {
-    if (activeTab === 'visits' && visits.length === 0) fetchVisits();
+    if (activeTab === 'visits') fetchVisits();
   }, [activeTab]);
 
   const now = new Date();

@@ -7,9 +7,9 @@ export async function GET(request: NextRequest) {
     const auth = await requireAuth();
     if (!auth.ok) return auth.response;
 
-    // Fetch all locations that have been visited (have a timestamp)
+    // Fetch all non-archived locations sorted by visit date
     const locations = await fetchFromSupabase(
-      '/locations?archived=neq.YES&timestamp=not.is.null&select=id,location_name,contact_person,direct_phone,business_phone,direct_email,visit_notes,pipeline_stage,interest_level,timestamp,created_at&order=timestamp.desc'
+      '/locations?archived=neq.YES&select=id,location_name,contact_person,direct_phone,business_phone,direct_email,visit_notes,pipeline_stage,interest_level,timestamp,created_at&order=timestamp.desc.nullslast'
     );
 
     const visits = (locations || []).map((loc: any) => ({
