@@ -202,6 +202,7 @@ export async function GET(request: NextRequest) {
           interest_level: loc.interest_level,
           pipeline_stage: loc.pipeline_stage,
           language: lang,
+          visited_at: loc.timestamp || loc.created_at || null,
         },
       };
     }).sort((a: any, b: any) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());

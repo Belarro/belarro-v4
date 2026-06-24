@@ -151,10 +151,10 @@ export default function FollowUpsPage() {
   todayEnd.setHours(23, 59, 59, 999);
 
   const pending = followups.filter(f => f.status === 'pending');
-  // Today: soonest due date first (overdue at top)
+  // Today: most recently added (latest due_date = latest visit) on top
   const today = pending
     .filter(f => new Date(f.due_date) <= todayEnd)
-    .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
+    .sort((a, b) => new Date(b.due_date).getTime() - new Date(a.due_date).getTime());
   // Upcoming: soonest due date first
   const upcoming = pending
     .filter(f => new Date(f.due_date) > todayEnd)
