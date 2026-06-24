@@ -170,6 +170,7 @@ export default function FollowUpsPage() {
     .sort((a, b) => new Date(b.sent_date ?? b.due_date).getTime() - new Date(a.sent_date ?? a.due_date).getTime());
 
   const displayed = activeTab === 'today' ? today : activeTab === 'pending' ? upcoming : done;
+  const isLocked = activeTab === 'pending'; // Upcoming tab — no sending allowed
 
   const handleLog = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -270,7 +271,7 @@ export default function FollowUpsPage() {
     setConfirmSent({ followup, via: 'whatsapp' });
   };
 
-  const Card = ({ f }: { f: FollowUp }) => {
+  const Card = ({ f, locked = false }: { f: FollowUp; locked?: boolean }) => {
     const isOverdue = f.status === 'pending' && new Date(f.due_date) < now;
     const restaurantName = f.location.name;
     const contactName = f.location.contact_person || f.location.name;
@@ -341,7 +342,12 @@ export default function FollowUpsPage() {
         )}
 
         {/* Actions */}
-        {f.status === 'pending' && (
+        {f.status === 'pending' && locked && (
+          <div className="flex items-center justify-center gap-2 py-2 text-xs text-gray-400 font-semibold bg-gray-50 rounded-lg border border-gray-200">
+            🔒 Unlocks {new Date(f.due_date).toLocaleDateString('en-DE', { day: 'numeric', month: 'short' })}
+          </div>
+        )}
+        {f.status === 'pending' && !locked && (
           <div className="flex flex-col gap-2">
             {/* Send buttons — with checkmarks once sent */}
             <div className="flex gap-2">
@@ -538,7 +544,7 @@ export default function FollowUpsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {displayed.map(f => <Card key={f.id} f={f} />)}
+          {displayed.map(f => <Card key={f.id} f={f} locked={isLocked} />)}
         </div>
       ))}
 
