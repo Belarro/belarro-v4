@@ -9,8 +9,10 @@ export async function GET(request: NextRequest) {
 
     // Fetch all non-archived locations sorted by visit date
     const locations = await fetchFromSupabase(
-      '/locations?archived=neq.YES&select=id,location_name,contact_person,direct_phone,business_phone,direct_email,visit_notes,pipeline_stage,interest_level,timestamp,created_at&order=timestamp.desc.nullslast'
+      '/locations?select=id,location_name,contact_person,direct_phone,business_phone,direct_email,visit_notes,pipeline_stage,interest_level,timestamp,created_at&order=timestamp.desc.nullslast&limit=500'
     );
+
+    console.log('Visits API — locations raw count:', Array.isArray(locations) ? locations.length : locations);
 
     const visits = (locations || []).map((loc: any) => ({
       location_id: loc.id,

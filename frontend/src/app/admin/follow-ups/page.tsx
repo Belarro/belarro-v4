@@ -79,6 +79,7 @@ export default function FollowUpsPage() {
   const [followups, setFollowups] = useState<FollowUp[]>([]);
   const [visits, setVisits] = useState<Visit[]>([]);
   const [visitsLoading, setVisitsLoading] = useState(false);
+  const [visitsError, setVisitsError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'today' | 'pending' | 'done' | 'visits'>('today');
 
@@ -111,11 +112,17 @@ export default function FollowUpsPage() {
   const fetchVisits = async () => {
     try {
       setVisitsLoading(true);
+      setVisitsError(null);
       const res = await fetch('/api/visits');
       const json = await res.json();
-      if (json.success) setVisits(json.data || []);
+      if (json.success) {
+        setVisits(json.data || []);
+      } else {
+        setVisitsError(json.error || 'Failed to load visits');
+      }
     } catch (err) {
       console.error(err);
+      setVisitsError('Network error loading visits');
     } finally {
       setVisitsLoading(false);
     }
@@ -375,6 +382,10 @@ export default function FollowUpsPage() {
         visitsLoading ? (
           <div className="flex items-center justify-center min-h-[300px]">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600" />
+          </div>
+        ) : visitsError ? (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center text-red-600 text-sm">
+            Error: {visitsError}
           </div>
         ) : visits.length === 0 ? (
           <div className="bg-white rounded-xl border border-gray-200 p-12 text-center text-gray-500">
