@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
     const auth = await requireAuth();
     if (!auth.ok) return auth.response;
     try {
-      const followups = await fetchFromSupabase('/belarro_v4_follow_up?select=*&order=due_date.asc');
+      const followups = await fetchFromSupabase('/belarro_v4_follow_up?select=*');
       const fls = followups || [];
 
       // Hydrate with customer details
