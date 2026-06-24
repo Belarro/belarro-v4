@@ -99,6 +99,7 @@ export default function FollowUpsPage() {
   const [showMessage, setShowMessage] = useState(false);
   const [logForm, setLogForm] = useState({ sent_via: 'whatsapp', notes: '' });
   const [submitting, setSubmitting] = useState(false);
+  const [confirmSent, setConfirmSent] = useState<{ followup: FollowUp; via: string } | null>(null);
 
   const [convertId, setConvertId] = useState<string | null>(null);
   const [converting, setConverting] = useState(false);
@@ -253,7 +254,7 @@ export default function FollowUpsPage() {
     if (number) {
       window.open(`https://wa.me/${number}?text=${text}`, '_blank');
     }
-    autoLog(followup, 'whatsapp');
+    setConfirmSent({ followup, via: 'whatsapp' });
   };
 
   const Card = ({ f }: { f: FollowUp }) => {
@@ -545,7 +546,7 @@ export default function FollowUpsPage() {
                       const subject = encodeURIComponent('Belarro Microgreens');
                       const body = encodeURIComponent(selected.message_text);
                       window.open(`https://mail.google.com/mail/u/5/?view=cm&from=hello%40belarro.com&to=${to}&su=${subject}&body=${body}`, '_blank');
-                      autoLog(selected, 'email');
+                      setConfirmSent({ followup: selected, via: 'email' });
                     }}
                     className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg text-sm transition"
                   >
@@ -629,6 +630,35 @@ export default function FollowUpsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Did you send it? confirmation */}
+      {confirmSent && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm border border-gray-200 p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-1">Did you send it?</h2>
+            <p className="text-sm text-gray-500 mb-6">
+              {confirmSent.via === 'whatsapp' ? '💬 WhatsApp' : '📧 Email'} opened for <strong>{confirmSent.followup.location.name}</strong>. Confirm only if you actually sent it.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmSent(null)}
+                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-3 rounded-lg text-sm"
+              >
+                No, I didn't send
+              </button>
+              <button
+                onClick={() => {
+                  autoLog(confirmSent.followup, confirmSent.via);
+                  setConfirmSent(null);
+                }}
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg text-sm shadow"
+              >
+                Yes, Sent!
+              </button>
+            </div>
           </div>
         </div>
       )}
