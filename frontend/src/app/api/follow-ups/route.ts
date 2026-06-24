@@ -191,9 +191,11 @@ export async function GET(request: NextRequest) {
       };
     }).sort((a: any, b: any) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
 
-    // All completed stages for History tab
+    // All completed stages for History tab — only ones actually sent (have sent_date or sent_via)
     const completedRows = fls.filter((f: any) =>
-      (f.status === 'completed' || f.status === 'sent') && locMap.has(f.location_id)
+      (f.status === 'completed' || f.status === 'sent') &&
+      locMap.has(f.location_id) &&
+      (f.sent_date || f.sent_via)
     );
 
     const completed = completedRows.map((f: any) => {
