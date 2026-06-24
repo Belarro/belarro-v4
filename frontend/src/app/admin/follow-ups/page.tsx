@@ -609,7 +609,11 @@ export default function FollowUpsPage() {
                     onClick={() => {
                       const to = encodeURIComponent(selected.location.email!);
                       const subject = encodeURIComponent('Belarro Microgreens');
-                      const body = encodeURIComponent(selected.message_text);
+                      const isDE = (selected.location.language || '').toLowerCase() === 'de';
+                      const flyerUrl = isDE
+                        ? 'https://wbqzlxdyjdmbzifhsyil.supabase.co/storage/v1/object/public/assets/flyers/followup-de.png'
+                        : 'https://wbqzlxdyjdmbzifhsyil.supabase.co/storage/v1/object/public/assets/flyers/followup-en.png';
+                      const body = encodeURIComponent(selected.message_text + '\n\n' + flyerUrl);
                       window.open(`https://mail.google.com/mail/u/5/?view=cm&from=hello%40belarro.com&to=${to}&su=${subject}&body=${body}`, '_blank');
                       setConfirmSent({ followup: selected, via: 'email' });
                     }}
