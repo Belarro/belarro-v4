@@ -50,10 +50,37 @@ const STAGE_COLORS: Record<number, string> = {
   5: 'bg-rose-100 text-rose-700',
 };
 
+interface Visit {
+  location_id: string;
+  restaurant_name: string;
+  contact_person: string | null;
+  phone: string | null;
+  email: string | null;
+  visited_at: string;
+  notes: string | null;
+  interest_level: string | null;
+  pipeline_stage: string | null;
+}
+
+const INTEREST_COLORS: Record<string, string> = {
+  high: 'bg-green-100 text-green-700',
+  medium: 'bg-amber-100 text-amber-700',
+  low: 'bg-gray-100 text-gray-500',
+};
+
+const STAGE_LABELS: Record<string, string> = {
+  new: 'New Lead',
+  active: 'Active Customer',
+  snoozed: 'Snoozed',
+  converted: 'Converted',
+};
+
 export default function FollowUpsPage() {
   const [followups, setFollowups] = useState<FollowUp[]>([]);
+  const [visits, setVisits] = useState<Visit[]>([]);
+  const [visitsLoading, setVisitsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'today' | 'pending' | 'done'>('today');
+  const [activeTab, setActiveTab] = useState<'today' | 'pending' | 'done' | 'visits'>('today');
 
   const [selected, setSelected] = useState<FollowUp | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -81,7 +108,24 @@ export default function FollowUpsPage() {
     }
   };
 
+  const fetchVisits = async () => {
+    try {
+      setVisitsLoading(true);
+      const res = await fetch('/api/visits');
+      const json = await res.json();
+      if (json.success) setVisits(json.data || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setVisitsLoading(false);
+    }
+  };
+
   useEffect(() => { fetchFollowups(); }, []);
+
+  useEffect(() => {
+    if (activeTab === 'visits' && visits.length === 0) fetchVisits();
+  }, [activeTab]);
 
   const now = new Date();
   const todayEnd = new Date();
@@ -310,6 +354,7 @@ export default function FollowUpsPage() {
           { key: 'today', label: `Today (${today.length})`, urgent: today.length > 0 },
           { key: 'pending', label: `Upcoming (${upcoming.length})` },
           { key: 'done', label: `Done (${done.length})` },
+          { key: 'visits', label: 'Visits' },
         ].map(t => (
           <button
             key={t.key}
@@ -318,15 +363,80 @@ export default function FollowUpsPage() {
               activeTab === t.key
                 ? 'border-green-600 text-green-700'
                 : 'border-transparent text-gray-500 hover:text-gray-900'
-            } ${t.urgent && activeTab !== t.key ? 'text-red-600' : ''}`}
+            } ${'urgent' in t && t.urgent && activeTab !== t.key ? 'text-red-600' : ''}`}
           >
             {t.label}
           </button>
         ))}
       </div>
 
-      {/* Content */}
-      {loading ? (
+      {/* Visits tab */}
+      {activeTab === 'visits' && (
+        visitsLoading ? (
+          <div className="flex items-center justify-center min-h-[300px]">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600" />
+          </div>
+        ) : visits.length === 0 ? (
+          <div className="bg-white rounded-xl border border-gray-200 p-12 text-center text-gray-500">
+            No visits recorded yet.
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  <th className="px-4 py-3">Restaurant</th>
+                  <th className="px-4 py-3">Contact</th>
+                  <th className="px-4 py-3">Visited</th>
+                  <th className="px-4 py-3">Interest</th>
+                  <th className="px-4 py-3">Stage</th>
+                  <th className="px-4 py-3">Notes</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {visits.map(v => (
+                  <tr key={v.location_id} className="hover:bg-gray-50 transition">
+                    <td className="px-4 py-3">
+                      <div className="font-semibold text-gray-900">{v.restaurant_name}</div>
+                      {v.phone && <div className="text-xs text-gray-400 mt-0.5">{v.phone}</div>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="text-gray-700">{v.contact_person || '—'}</div>
+                      {v.email && <div className="text-xs text-gray-400 mt-0.5">{v.email}</div>}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-gray-600">
+                      {v.visited_at
+                        ? new Date(v.visited_at).toLocaleDateString('en-DE', { day: 'numeric', month: 'short', year: 'numeric' })
+                        : '—'}
+                    </td>
+                    <td className="px-4 py-3">
+                      {v.interest_level ? (
+                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold capitalize ${INTEREST_COLORS[v.interest_level.toLowerCase()] || 'bg-gray-100 text-gray-500'}`}>
+                          {v.interest_level}
+                        </span>
+                      ) : <span className="text-gray-400">—</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      {v.pipeline_stage ? (
+                        <span className="text-xs text-gray-600 capitalize">
+                          {STAGE_LABELS[v.pipeline_stage] || v.pipeline_stage}
+                        </span>
+                      ) : <span className="text-gray-400">—</span>}
+                    </td>
+                    <td className="px-4 py-3 max-w-xs">
+                      <span className="text-xs text-gray-500 line-clamp-2">{v.notes || '—'}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      )}
+
+      {/* Follow-ups content */}
+      {activeTab !== 'visits' && (
+        loading ? (
         <div className="flex items-center justify-center min-h-[300px]">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600" />
         </div>
@@ -338,7 +448,7 @@ export default function FollowUpsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {displayed.map(f => <Card key={f.id} f={f} />)}
         </div>
-      )}
+      ))}
 
       {/* Message Modal — shows pre-written WhatsApp message */}
       {showMessage && selected && (
