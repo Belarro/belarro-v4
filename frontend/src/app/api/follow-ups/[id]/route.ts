@@ -6,6 +6,24 @@ type Params = {
   params: Promise<{ id: string }>
 }
 
+// Add N business days (skip Sat=6, Sun=0) to a date
+function addBusinessDays(from: Date, days: number): Date {
+  if (days === 0) return from;
+  const result = new Date(from);
+  let added = 0;
+  while (added < days) {
+    result.setDate(result.getDate() + 1);
+    const dow = result.getDay();
+    if (dow !== 0 && dow !== 6) added++;
+  }
+  return result;
+}
+
+// Days between stages for new lead flow
+const NEW_LEAD_GAPS: Record<number, number> = { 1: 0, 2: 2, 3: 5, 4: 14, 5: 30 };
+// Days between stages for re-engage flow
+const REENGAGE_GAPS: Record<number, number> = { 1: 0, 2: 5, 3: 14, 4: 30 };
+
 export async function PUT(request: NextRequest, props: Params) {
   try {
     const auth = await requireAuth();
@@ -18,20 +36,55 @@ export async function PUT(request: NextRequest, props: Params) {
       return NextResponse.json({ success: false, error: 'status is required' }, { status: 400 });
     }
 
-    const updated = await fetchFromSupabase(`/belarro_v4_follow_up?id=eq.${id}`, {
+    const now = new Date();
+
+    // Mark this stage as completed
+    await fetchFromSupabase(`/belarro_v4_follow_up?id=eq.${id}`, {
       method: 'PATCH',
       body: JSON.stringify({
         status,
         sent_via: sent_via || null,
-        sent_date: status === 'completed' || status === 'sent' ? new Date().toISOString() : null,
+        sent_date: status === 'completed' || status === 'sent' ? now.toISOString() : null,
         notes: notes || null,
-        updated_at: new Date().toISOString()
+        updated_at: now.toISOString()
       })
     });
 
+    // Recalculate next stage due date from actual sent time
+    if (status === 'completed' || status === 'sent') {
+      // Get this follow-up to find location_id and stage
+      const current = await fetchFromSupabase(`/belarro_v4_follow_up?id=eq.${id}&select=*`);
+      if (current && current.length > 0) {
+        const cur = current[0];
+        const nextStage = (cur.stage || cur.follow_up_number || 1) + 1;
+
+        // Find next pending stage for this location
+        const next = await fetchFromSupabase(
+          `/belarro_v4_follow_up?location_id=eq.${cur.location_id}&stage=eq.${nextStage}&status=eq.pending&select=id,stage,follow_up_days`
+        );
+
+        if (next && next.length > 0) {
+          const n = next[0];
+          // Determine flow from existing follow_up_days pattern
+          const gaps = n.follow_up_days <= 14 && nextStage <= 4
+            ? REENGAGE_GAPS
+            : NEW_LEAD_GAPS;
+          const daysToAdd = gaps[nextStage] ?? n.follow_up_days ?? 2;
+          const newDueDate = addBusinessDays(now, daysToAdd);
+
+          await fetchFromSupabase(`/belarro_v4_follow_up?id=eq.${n.id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({
+              due_date: newDueDate.toISOString(),
+              updated_at: now.toISOString()
+            })
+          });
+        }
+      }
+    }
+
     return NextResponse.json({
       success: true,
-      data: updated ? updated[0] : null,
       message: 'Follow-up logged successfully'
     });
   } catch (error) {

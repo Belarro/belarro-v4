@@ -236,14 +236,24 @@ export default function FollowUpsPage() {
     }
   };
 
+  const autoLog = async (followup: FollowUp, via: string) => {
+    await fetch(`/api/follow-ups/${followup.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'completed', sent_via: via, notes: '' }),
+    });
+    setShowMessage(false);
+    setSelected(null);
+    fetchFollowups();
+  };
+
   const openWhatsApp = (followup: FollowUp) => {
     const number = (followup.whatsapp_number || '').replace(/\D/g, '');
     const text = encodeURIComponent(followup.message_text);
     if (number) {
       window.open(`https://wa.me/${number}?text=${text}`, '_blank');
-    } else {
-      // No number — just show the message to copy
     }
+    autoLog(followup, 'whatsapp');
   };
 
   const Card = ({ f }: { f: FollowUp }) => {
@@ -278,7 +288,7 @@ export default function FollowUpsPage() {
             <div key={s} className="flex-1 flex flex-col items-center gap-1">
               <div className={`w-full h-1.5 rounded-full transition-all ${
                 s < f.stage ? 'bg-green-500' :
-                s === f.stage ? 'bg-green-400 animate-pulse' :
+                s === f.stage ? 'bg-red-500 animate-pulse' :
                 'bg-gray-200'
               }`} />
               <span className="text-[9px] text-gray-400 font-medium">{label}</span>
@@ -535,6 +545,7 @@ export default function FollowUpsPage() {
                       const subject = encodeURIComponent('Belarro Microgreens');
                       const body = encodeURIComponent(selected.message_text);
                       window.open(`https://mail.google.com/mail/u/5/?view=cm&from=hello%40belarro.com&to=${to}&su=${subject}&body=${body}`, '_blank');
+                      autoLog(selected, 'email');
                     }}
                     className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg text-sm transition"
                   >
