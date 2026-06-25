@@ -27,7 +27,7 @@ function SettingsContent() {
       )}
       {gmailStatus === 'error' && (
         <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-red-800 text-sm font-semibold">
-          Gmail connection failed. Please try again.
+          Gmail connection failed: {searchParams.get('reason') || 'unknown error'}
         </div>
       )}
 

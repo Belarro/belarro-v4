@@ -31,7 +31,8 @@ export async function GET(request: NextRequest) {
   if (!tokenRes.ok) {
     const err = await tokenRes.text();
     console.error('Gmail token exchange failed:', err);
-    return NextResponse.redirect(`${appUrl}/admin/settings?gmail=error&reason=token_exchange`);
+    const reason = encodeURIComponent(err.slice(0, 200));
+    return NextResponse.redirect(`${appUrl}/admin/settings?gmail=error&reason=${reason}`);
   }
 
   const tokens = await tokenRes.json();
