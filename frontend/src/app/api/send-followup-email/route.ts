@@ -39,12 +39,21 @@ async function getValidAccessToken(): Promise<string> {
 }
 
 function buildMimeEmail({
-  to, subject, body, language, attachmentBase64, attachmentName,
+  to, subject, body, attachmentBase64, attachmentName,
 }: {
   to: string; subject: string; body: string; language: string;
   attachmentBase64: string; attachmentName: string;
 }): string {
-  const boundary = `boundary_${Date.now()}`;
+  const boundary = `mixed_${Date.now()}`;
+  const relBoundary = `related_${Date.now()}`;
+  const cid = `flyer_${Date.now()}@belarro.com`;
+
+  // Convert plain text body to simple HTML with inline image at bottom
+  const htmlBody = body
+    .split('\n')
+    .map(line => line.trim() === '' ? '<br>' : `<p style="margin:0 0 8px 0;font-family:Arial,sans-serif;font-size:15px;color:#222;">${line}</p>`)
+    .join('\n');
+
   const lines = [
     `From: Belarro Microgreens <hello@belarro.com>`,
     `To: ${to}`,
@@ -53,17 +62,27 @@ function buildMimeEmail({
     `Content-Type: multipart/mixed; boundary="${boundary}"`,
     ``,
     `--${boundary}`,
-    `Content-Type: text/plain; charset=UTF-8`,
+    `Content-Type: multipart/related; boundary="${relBoundary}"`,
+    ``,
+    `--${relBoundary}`,
+    `Content-Type: text/html; charset=UTF-8`,
     `Content-Transfer-Encoding: quoted-printable`,
     ``,
-    body,
+    `<html><body style="max-width:600px;margin:0 auto;padding:20px;">`,
+    htmlBody,
+    `<br><br>`,
+    `<img src="cid:${cid}" alt="Belarro Microgreens" style="width:100%;max-width:600px;display:block;" />`,
+    `</body></html>`,
     ``,
-    `--${boundary}`,
-    `Content-Type: image/png; name="${attachmentName}"`,
+    `--${relBoundary}`,
+    `Content-Type: image/png`,
     `Content-Transfer-Encoding: base64`,
-    `Content-Disposition: attachment; filename="${attachmentName}"`,
+    `Content-ID: <${cid}>`,
+    `Content-Disposition: inline; filename="${attachmentName}"`,
     ``,
     attachmentBase64,
+    ``,
+    `--${relBoundary}--`,
     ``,
     `--${boundary}--`,
   ];
