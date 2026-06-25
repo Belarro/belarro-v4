@@ -429,8 +429,21 @@ export default function FollowUpsPage() {
 
         {/* Actions */}
         {f.status === 'pending' && locked && (
-          <div className="flex items-center justify-center gap-2 py-2 text-xs text-gray-400 font-semibold bg-gray-50 rounded-lg border border-gray-200">
-            🔒 Unlocks {new Date(f.due_date).toLocaleDateString('en-DE', { day: 'numeric', month: 'short' })}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-center gap-2 py-2 text-xs text-gray-400 font-semibold bg-gray-50 rounded-lg border border-gray-200">
+              🔒 Unlocks {new Date(f.due_date).toLocaleDateString('en-DE', { day: 'numeric', month: 'short' })}
+            </div>
+            {f.location.email && (
+              <button
+                onClick={() => sendEmail(f)}
+                disabled={sendingEmail === f.id}
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold py-2 rounded-lg text-sm transition flex items-center justify-center gap-1.5"
+              >
+                {sendingEmail === f.id ? (
+                  <><div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white" /> Sending...</>
+                ) : '📧 Send Email Anyway'}
+              </button>
+            )}
           </div>
         )}
         {f.status === 'pending' && !locked && (

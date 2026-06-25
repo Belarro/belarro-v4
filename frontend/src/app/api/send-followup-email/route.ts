@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchFromSupabase } from '@/lib/supabase';
-import { requireAuth } from '@/lib/auth';
 
 const FLYER_EN = 'https://wbqzlxdyjdmbzifhsyil.supabase.co/storage/v1/object/public/assets/flyers/followup-en.png';
 const FLYER_DE = 'https://wbqzlxdyjdmbzifhsyil.supabase.co/storage/v1/object/public/assets/flyers/followup-de.png';
@@ -90,10 +89,19 @@ function buildMimeEmail({
 }
 
 export async function POST(request: NextRequest) {
-  try {
-    const auth = await requireAuth();
-    if (!auth.ok) return auth.response;
+  // Allow CORS for SalesTracker PWA
+  const origin = request.headers.get('origin') || '';
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+  };
 
+  if (request.method === 'OPTIONS') {
+    return new NextResponse(null, { status: 204, headers: corsHeaders });
+  }
+
+  try {
     const { followup_id, to, subject, body, language } = await request.json();
 
     if (!to || !subject || !body) {
@@ -142,12 +150,23 @@ export async function POST(request: NextRequest) {
     // Do NOT auto-log — user may still want to send WhatsApp too.
     // They click "Done — move to next stage" manually after sending all channels.
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true }, { headers: corsHeaders });
   } catch (error) {
     console.error('Send email error:', error);
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : 'Unknown error' },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     );
   }
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    },
+  });
 }
