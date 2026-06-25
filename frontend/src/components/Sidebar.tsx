@@ -43,6 +43,10 @@ const sections = [
       { label: 'Invoices', href: '/admin/invoices', icon: ClipboardListIcon },
     ],
   },
+  {
+    title: null,
+    items: [{ label: 'Settings', href: '/admin/settings', icon: SparklesIcon }],
+  },
 ];
 
 export default function Sidebar() {

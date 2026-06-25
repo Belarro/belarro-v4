@@ -112,6 +112,8 @@ export default function FollowUpsPage() {
   const [snoozeSuccess, setSnoozeSuccess] = useState<string | null>(null);
   const [replying, setReplying] = useState<string | null>(null); // followup id being marked as replied
   const [highlightId, setHighlightId] = useState<string | null>(null);
+  const [sendingEmail, setSendingEmail] = useState<string | null>(null); // followup id being emailed
+  const [emailError, setEmailError] = useState<string | null>(null);
 
   const fetchFollowups = async () => {
     try {
@@ -304,6 +306,38 @@ export default function FollowUpsPage() {
     setConfirmSent({ followup, via: 'whatsapp' });
   };
 
+  const sendEmail = async (followup: FollowUp) => {
+    if (!followup.location.email) return;
+    setSendingEmail(followup.id);
+    setEmailError(null);
+    try {
+      const isDE = (followup.location.language || '').toUpperCase() === 'DE';
+      const res = await fetch('/api/send-followup-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          followup_id: followup.id,
+          to: followup.location.email,
+          subject: isDE ? 'Belarro Microgreens — Nachricht für Sie' : 'Belarro Microgreens — A message for you',
+          body: followup.message_text,
+          language: followup.location.language || 'EN',
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setShowMessage(false);
+        setSelected(null);
+        fetchFollowups();
+      } else {
+        setEmailError(json.error || 'Send failed');
+      }
+    } catch {
+      setEmailError('Network error — try again');
+    } finally {
+      setSendingEmail(null);
+    }
+  };
+
   const Card = ({ f, locked = false }: { f: FollowUp; locked?: boolean }) => {
     const isOverdue = f.status === 'pending' && new Date(f.due_date) < now;
     const restaurantName = f.location.name;
@@ -398,14 +432,19 @@ export default function FollowUpsPage() {
               )}
               {f.location.email && (
                 <button
-                  onClick={() => { setSelected(f); setShowMessage(true); }}
+                  onClick={() => sendEmail(f)}
+                  disabled={sendingEmail === f.id}
                   className={`flex-1 font-semibold py-2 rounded-lg text-sm transition flex items-center justify-center gap-1.5 ${
                     emailSent
                       ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                      : sendingEmail === f.id
+                      ? 'bg-blue-400 text-white cursor-not-allowed'
                       : 'bg-blue-600 hover:bg-blue-700 text-white'
                   }`}
                 >
-                  {emailSent ? '✓ Email' : '📧 Email'}
+                  {emailSent ? '✓ Email' : sendingEmail === f.id ? (
+                    <><div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white" /> Sending...</>
+                  ) : '📧 Email'}
                 </button>
               )}
               {!hasWhatsApp && !f.location.email && (
@@ -669,21 +708,17 @@ export default function FollowUpsPage() {
                 )}
                 {selected.location.email && (
                   <button
-                    onClick={() => {
-                      const to = encodeURIComponent(selected.location.email!);
-                      const subject = encodeURIComponent('Belarro Microgreens');
-                      const isDE = (selected.location.language || '').toLowerCase() === 'de';
-                      const flyerUrl = isDE
-                        ? 'https://wbqzlxdyjdmbzifhsyil.supabase.co/storage/v1/object/public/assets/flyers/followup-de.png'
-                        : 'https://wbqzlxdyjdmbzifhsyil.supabase.co/storage/v1/object/public/assets/flyers/followup-en.png';
-                      const body = encodeURIComponent(selected.message_text + '\n\n' + flyerUrl);
-                      window.open(`https://mail.google.com/mail/u/5/?view=cm&from=hello%40belarro.com&to=${to}&su=${subject}&body=${body}`, '_blank');
-                      setConfirmSent({ followup: selected, via: 'email' });
-                    }}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg text-sm transition"
+                    onClick={() => sendEmail(selected)}
+                    disabled={sendingEmail === selected.id}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold py-2 rounded-lg text-sm transition flex items-center justify-center gap-1.5"
                   >
-                    📧 Email ↗
+                    {sendingEmail === selected.id ? (
+                      <><div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white" /> Sending...</>
+                    ) : '📧 Send Email'}
                   </button>
+                )}
+                {emailError && (
+                  <p className="text-xs text-red-600 font-semibold mt-1">{emailError} — <a href="/admin/settings" className="underline">Check Gmail connection</a></p>
                 )}
               </div>
 
