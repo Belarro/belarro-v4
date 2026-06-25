@@ -328,7 +328,7 @@ export default function FollowUpsPage() {
     setSendingEmail(followup.id);
     setEmailError(null);
     try {
-      const isDE = (followup.location.language || '').toUpperCase() === 'DE';
+      const isDE = (followup.location.language || '').toUpperCase() !== 'EN'; // default DE
       const lang = isDE ? 'DE' : 'EN';
       const subject = EMAIL_SUBJECTS[lang][followup.stage] || (isDE ? 'Belarro Microgreens - Nachricht' : 'Belarro Microgreens - Message');
       const res = await fetch('/api/send-followup-email', {

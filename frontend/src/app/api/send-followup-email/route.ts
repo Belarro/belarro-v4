@@ -38,50 +38,41 @@ async function getValidAccessToken(): Promise<string> {
 }
 
 function buildMimeEmail({
-  to, subject, body, attachmentBase64, attachmentName,
+  to, subject, body, flyerUrl,
 }: {
-  to: string; subject: string; body: string; language: string;
-  attachmentBase64: string; attachmentName: string;
+  to: string; subject: string; body: string; language: string; flyerUrl: string;
 }): string {
-  const boundary = `mixed_${Date.now()}`;
-  const relBoundary = `related_${Date.now()}`;
-  const cid = `flyer_${Date.now()}@belarro.com`;
+  const boundary = `boundary_${Date.now()}`;
 
-  // Convert plain text body to simple HTML with inline image at bottom
   const htmlBody = body
     .split('\n')
     .map(line => line.trim() === '' ? '<br>' : `<p style="margin:0 0 8px 0;font-family:Arial,sans-serif;font-size:15px;color:#222;">${line}</p>`)
     .join('\n');
+
+  const html = [
+    `<html><body style="max-width:600px;margin:0 auto;padding:20px;">`,
+    htmlBody,
+    `<br>`,
+    `<img src="${flyerUrl}" alt="Belarro Microgreens" style="width:100%;max-width:600px;display:block;border:0;" />`,
+    `</body></html>`,
+  ].join('\n');
 
   const lines = [
     `From: Belarro Microgreens <hello@belarro.com>`,
     `To: ${to}`,
     `Subject: =?UTF-8?B?${Buffer.from(subject).toString('base64')}?=`,
     `MIME-Version: 1.0`,
-    `Content-Type: multipart/mixed; boundary="${boundary}"`,
+    `Content-Type: multipart/alternative; boundary="${boundary}"`,
     ``,
     `--${boundary}`,
-    `Content-Type: multipart/related; boundary="${relBoundary}"`,
+    `Content-Type: text/plain; charset=UTF-8`,
     ``,
-    `--${relBoundary}`,
+    body,
+    ``,
+    `--${boundary}`,
     `Content-Type: text/html; charset=UTF-8`,
-    `Content-Transfer-Encoding: quoted-printable`,
     ``,
-    `<html><body style="max-width:600px;margin:0 auto;padding:20px;">`,
-    htmlBody,
-    `<br><br>`,
-    `<img src="cid:${cid}" alt="Belarro Microgreens" style="width:100%;max-width:600px;display:block;" />`,
-    `</body></html>`,
-    ``,
-    `--${relBoundary}`,
-    `Content-Type: image/png`,
-    `Content-Transfer-Encoding: base64`,
-    `Content-ID: <${cid}>`,
-    `Content-Disposition: inline; filename="${attachmentName}"`,
-    ``,
-    attachmentBase64,
-    ``,
-    `--${relBoundary}--`,
+    html,
     ``,
     `--${boundary}--`,
   ];
@@ -109,20 +100,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch flyer as base64
-    const flyerUrl = (language || '').toUpperCase() === 'DE' ? FLYER_DE : FLYER_EN;
-    const flyerName = (language || '').toUpperCase() === 'DE' ? 'Belarro-Microgreens-DE.png' : 'Belarro-Microgreens-EN.png';
+    const flyerUrl = (language || '').toUpperCase() === 'EN' ? FLYER_EN : FLYER_DE; // default DE
 
-    const flyerRes = await fetch(flyerUrl);
-    if (!flyerRes.ok) throw new Error('Failed to fetch flyer image');
-    const flyerBuffer = await flyerRes.arrayBuffer();
-    const flyerBase64 = Buffer.from(flyerBuffer).toString('base64');
-
-    // Build MIME email
-    const raw = buildMimeEmail({
-      to, subject, body, language,
-      attachmentBase64: flyerBase64,
-      attachmentName: flyerName,
-    });
+    // Build MIME email — image linked directly from Supabase (no base64, no attachment)
+    const raw = buildMimeEmail({ to, subject, body, language, flyerUrl });
 
     // Base64url encode
     const encodedEmail = Buffer.from(raw).toString('base64')
