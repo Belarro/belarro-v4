@@ -1,10 +1,6 @@
 import { NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth';
 
 export async function GET() {
-  const auth = await requireAuth();
-  if (!auth.ok) return auth.response;
-
   const clientId = process.env.GMAIL_CLIENT_ID;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
