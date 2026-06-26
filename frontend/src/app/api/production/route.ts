@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
     if (!auth.ok) return auth.response;
 
     const [orders, variants, crops, procedures, customers, batches, harvests] = await Promise.all([
-      fetchFromSupabase('/belarro_v4_order?status=in.(pending_seed,growing)&select=*'),
+      fetchFromSupabase('/belarro_v4_order?status=in.(active,pending_seed,growing)&deleted_at=is.null&select=*'),
       fetchFromSupabase('/belarro_v4_product_variant?select=*'),
       fetchFromSupabase('/belarro_v4_crop?select=*'),
       fetchFromSupabase('/belarro_v4_growth_procedure?select=crop_id,stack_days,blackout_days,light_days'),
@@ -84,8 +84,20 @@ export async function GET(request: NextRequest) {
     // One delivery group per customer. Within each group, crops are deduplicated
     // (multiple order lines for the same crop → sum trays).
 
+    // ISO week number helper — used to determine biweekly seeding week
+    const isoWeek = (d: Date): number => {
+      const tmp = new Date(d);
+      tmp.setHours(0, 0, 0, 0);
+      tmp.setDate(tmp.getDate() + 3 - ((tmp.getDay() + 6) % 7));
+      const week1 = new Date(tmp.getFullYear(), 0, 4);
+      return 1 + Math.round(((tmp.getTime() - week1.getTime()) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7);
+    };
+    const thisWeekNum = isoWeek(today);
+
     const customerGroups = new Map<string, any[]>();
     for (const order of (orders || [])) {
+      // Biweekly: only include on even weeks (consistent every-other-week rhythm)
+      if (order.frequency === 'biweekly' && thisWeekNum % 2 !== 0) continue;
       const cid = order.customer_id;
       if (!customerGroups.has(cid)) customerGroups.set(cid, []);
       customerGroups.get(cid)!.push(order);
