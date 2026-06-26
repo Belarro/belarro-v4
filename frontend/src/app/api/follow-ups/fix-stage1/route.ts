@@ -7,22 +7,33 @@ export async function POST() {
     const auth = await requireAuth();
     if (!auth.ok) return auth.response;
 
-    const now = new Date().toISOString();
+    const now = new Date();
+    // Today at midnight local = start of today in UTC
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const todayStartISO = todayStart.toISOString();
+    const todayEndISO = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).toISOString();
 
-    // Find all stage-1 pending rows where due_date is in the future
+    // Find all stage-1 pending rows not already set to today
+    // Catches both "future" stuck rows AND rows from just-past-midnight (stored as yesterday UTC)
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
     const stuckRows = await fetchFromSupabase(
-      `/belarro_v4_follow_up?stage=eq.1&status=eq.pending&due_date=gt.${now}&select=id`
+      `/belarro_v4_follow_up?stage=eq.1&status=eq.pending&due_date=not.gte.${todayStartISO}&due_date=gte.${weekAgo}&select=id`
     );
 
-    if (!stuckRows || stuckRows.length === 0) {
+    const futureRows = await fetchFromSupabase(
+      `/belarro_v4_follow_up?stage=eq.1&status=eq.pending&due_date=gt.${todayEndISO}&select=id`
+    );
+
+    const allRows = [...(stuckRows || []), ...(futureRows || [])];
+
+    if (allRows.length === 0) {
       return NextResponse.json({ success: true, fixed: 0 });
     }
 
-    // Update each one to now
-    for (const row of stuckRows) {
+    for (const row of allRows) {
       await fetchFromSupabase(`/belarro_v4_follow_up?id=eq.${row.id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ due_date: now }),
+        body: JSON.stringify({ due_date: todayStartISO }),
       });
     }
 
