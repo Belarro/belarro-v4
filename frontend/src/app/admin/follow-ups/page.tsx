@@ -172,17 +172,17 @@ export default function FollowUpsPage() {
   }, [activeTab]);
 
   const now = new Date();
-  const todayEnd = new Date();
-  todayEnd.setHours(23, 59, 59, 999);
+  const todayStr = now.toLocaleDateString('sv'); // YYYY-MM-DD in local tz
+  const dueDateStr = (f: FollowUp) => new Date(f.due_date).toLocaleDateString('sv');
 
   const pending = followups.filter(f => f.status === 'pending');
   // Today: most recently added (latest due_date = latest visit) on top
   const today = pending
-    .filter(f => new Date(f.due_date) <= todayEnd)
+    .filter(f => dueDateStr(f) <= todayStr)
     .sort((a, b) => new Date(b.due_date).getTime() - new Date(a.due_date).getTime());
   // Upcoming: soonest due date first
   const upcoming = pending
-    .filter(f => new Date(f.due_date) > todayEnd)
+    .filter(f => dueDateStr(f) > todayStr)
     .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
   // Warm: replied leads — they responded, waiting for manual follow-up
   const warm = followups
