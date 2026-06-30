@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
       fetchFromSupabase('/belarro_v4_order?deleted_at=is.null&select=*').catch((e: any) => { throw new Error('orders: ' + e.message); }),
       fetchFromSupabase('/belarro_v4_product_variant?select=*').catch((e: any) => { throw new Error('variants: ' + e.message); }),
       fetchFromSupabase('/belarro_v4_crop?select=id,name_en&deleted_at=is.null').catch((e: any) => { throw new Error('crops: ' + e.message); }),
-      fetchFromSupabase('/belarro_v4_customer?select=id,name,restaurant_name,email,address,tax_number,net_days').catch((e: any) => { throw new Error('customers: ' + e.message); }),
+      fetchFromSupabase('/belarro_v4_customer?select=id,name,restaurant_name,email,address').catch((e: any) => { throw new Error('customers: ' + e.message); }),
     ]);
 
     const varMap = new Map<string, any>((variants || []).map((v: any) => [v.id, v]));
@@ -95,10 +95,10 @@ export async function GET(request: NextRequest) {
       return {
         customer_id: customerId,
         customer_name: customerName,
-        customer_email: customer.email,
-        customer_address: customer.address,
-        customer_tax_number: customer.tax_number,
-        net_days: customer.net_days || 30,
+        customer_email: customer.email || null,
+        customer_address: customer.address || null,
+        customer_tax_number: null,
+        net_days: 30,
         month,
         lines,
         subtotal: +subtotal.toFixed(2),
