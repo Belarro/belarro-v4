@@ -13,6 +13,7 @@ interface InvoiceLine {
   line_total: number;
   removed: boolean;
   qty_override: number | null;
+  manual?: boolean;
 }
 
 interface CustomerInvoice {
@@ -52,6 +53,18 @@ function calcTotals(lines: InvoiceLine[]) {
   };
 }
 
+// Group lines by delivery_date
+function groupByDate(lines: InvoiceLine[]): { date: string; lines: InvoiceLine[] }[] {
+  const map = new Map<string, InvoiceLine[]>();
+  for (const l of lines) {
+    if (!map.has(l.delivery_date)) map.set(l.delivery_date, []);
+    map.get(l.delivery_date)!.push(l);
+  }
+  return Array.from(map.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, lines]) => ({ date, lines }));
+}
+
 export default function InvoicesPage() {
   const today = new Date();
   const defaultMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
@@ -62,6 +75,10 @@ export default function InvoicesPage() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [editedLines, setEditedLines] = useState<Record<string, InvoiceLine[]>>({});
 
+  // Add line modal state
+  const [addModal, setAddModal] = useState<{ customerId: string; date: string } | null>(null);
+  const [addForm, setAddForm] = useState({ crop_name: '', size_name: '', qty: '1', unit_price: '' });
+
   const load = useCallback(async (m: string) => {
     setLoading(true);
     try {
@@ -69,7 +86,6 @@ export default function InvoicesPage() {
       const json = await res.json();
       if (json.success) {
         setInvoices(json.data);
-        // Reset edits when month changes
         const initial: Record<string, InvoiceLine[]> = {};
         for (const inv of json.data) {
           initial[inv.customer_id] = inv.lines.map((l: InvoiceLine) => ({ ...l }));
@@ -100,6 +116,39 @@ export default function InvoicesPage() {
     }));
   };
 
+  const setPriceOverride = (customerId: string, lineId: string, val: string) => {
+    const price = val === '' ? 0 : parseFloat(val);
+    setEditedLines(prev => ({
+      ...prev,
+      [customerId]: prev[customerId].map(l => l.id === lineId ? { ...l, unit_price: isNaN(price) ? l.unit_price : price } : l),
+    }));
+  };
+
+  const handleAddLine = () => {
+    if (!addModal) return;
+    const qty = parseInt(addForm.qty) || 1;
+    const price = parseFloat(addForm.unit_price) || 0;
+    const newLine: InvoiceLine = {
+      id: `manual-${Date.now()}`,
+      order_id: '',
+      delivery_date: addModal.date,
+      crop_name: addForm.crop_name.trim(),
+      size_name: addForm.size_name.trim(),
+      qty,
+      unit_price: price,
+      line_total: +(qty * price).toFixed(2),
+      removed: false,
+      qty_override: null,
+      manual: true,
+    };
+    setEditedLines(prev => ({
+      ...prev,
+      [addModal.customerId]: [...(prev[addModal.customerId] || []), newLine],
+    }));
+    setAddModal(null);
+    setAddForm({ crop_name: '', size_name: '', qty: '1', unit_price: '' });
+  };
+
   const handlePrint = (inv: CustomerInvoice) => {
     const lines = getLines(inv.customer_id);
     const { subtotal, vat, total } = calcTotals(lines);
@@ -113,35 +162,32 @@ export default function InvoicesPage() {
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: Arial, sans-serif; font-size: 12px; color: #111; padding: 40px; }
-    h1 { font-size: 22px; font-weight: bold; margin-bottom: 4px; }
-    .meta { color: #555; font-size: 11px; margin-bottom: 24px; }
     .header { display: flex; justify-content: space-between; margin-bottom: 32px; }
-    .from p, .to p { line-height: 1.6; }
     .label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: #888; margin-bottom: 4px; }
+    p { line-height: 1.6; }
     table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-    th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: #888; border-bottom: 2px solid #000; padding: 6px 8px; }
+    th { text-align: left; font-size: 10px; text-transform: uppercase; color: #888; border-bottom: 2px solid #000; padding: 6px 8px; }
     td { padding: 7px 8px; border-bottom: 1px solid #eee; }
-    tr:last-child td { border-bottom: none; }
     .right { text-align: right; }
-    .totals { margin-top: 24px; margin-left: auto; width: 260px; }
-    .totals tr td { border: none; padding: 4px 8px; }
+    .week-header td { font-weight: bold; font-size: 11px; background: #f5f5f5; padding: 4px 8px; border-bottom: 1px solid #ddd; }
+    .totals { margin-top: 24px; margin-left: auto; width: 260px; border-collapse: collapse; }
+    .totals td { border: none; padding: 4px 8px; }
     .totals .total-row td { font-weight: bold; font-size: 14px; border-top: 2px solid #000; padding-top: 8px; }
     .footer { margin-top: 40px; font-size: 10px; color: #888; }
   </style>
 </head>
 <body>
   <div class="header">
-    <div class="from">
+    <div>
       <p class="label">From</p>
       <p><strong>Belarro / Citfarm UG</strong></p>
       <p>Berlin, Germany</p>
     </div>
-    <div class="to">
+    <div>
       <p class="label">Bill To</p>
       <p><strong>${inv.customer_name}</strong></p>
       ${inv.customer_address ? `<p>${inv.customer_address}</p>` : ''}
       ${inv.customer_email ? `<p>${inv.customer_email}</p>` : ''}
-      ${inv.customer_tax_number ? `<p>VAT: ${inv.customer_tax_number}</p>` : ''}
     </div>
     <div>
       <p class="label">Invoice Period</p>
@@ -162,17 +208,23 @@ export default function InvoicesPage() {
       </tr>
     </thead>
     <tbody>
-      ${activeLines.map(l => {
-        const qty = l.qty_override ?? l.qty;
-        const lineTotal = (qty * l.unit_price).toFixed(2);
-        return `<tr>
-          <td>${fmtDate(l.delivery_date)}</td>
-          <td>${l.crop_name}${l.size_name ? ` (${l.size_name})` : ''}</td>
-          <td class="right">${qty}</td>
-          <td class="right">€${l.unit_price.toFixed(2)}</td>
-          <td class="right">€${lineTotal}</td>
-        </tr>`;
-      }).join('')}
+      ${(() => {
+        const grouped = groupByDate(activeLines);
+        return grouped.map(({ date, lines: wLines }) => {
+          const weekTotal = wLines.reduce((s, l) => s + (l.qty_override ?? l.qty) * l.unit_price, 0);
+          return `<tr class="week-header"><td colspan="4">${fmtDate(date)}</td><td class="right">€${weekTotal.toFixed(2)}</td></tr>` +
+            wLines.map(l => {
+              const qty = l.qty_override ?? l.qty;
+              return `<tr>
+                <td></td>
+                <td>${l.crop_name}${l.size_name ? ` (${l.size_name})` : ''}</td>
+                <td class="right">${qty}</td>
+                <td class="right">€${l.unit_price.toFixed(2)}</td>
+                <td class="right">€${(qty * l.unit_price).toFixed(2)}</td>
+              </tr>`;
+            }).join('');
+        }).join('');
+      })()}
     </tbody>
   </table>
 
@@ -201,7 +253,7 @@ export default function InvoicesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Invoices</h1>
-          <p className="text-sm text-gray-500 mt-1">Auto-generated from active orders. Edit lines before printing.</p>
+          <p className="text-sm text-gray-500 mt-1">Auto-generated from active orders. Edit or add lines before printing.</p>
         </div>
         <input
           type="month"
@@ -227,10 +279,11 @@ export default function InvoicesPage() {
             const { subtotal, vat, total } = calcTotals(lines);
             const isOpen = openId === inv.customer_id;
             const activeCount = lines.filter(l => !l.removed).length;
+            const grouped = groupByDate(lines);
 
             return (
               <div key={inv.customer_id} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                {/* Header row — click to expand */}
+                {/* Header — click to expand */}
                 <button
                   onClick={() => setOpenId(isOpen ? null : inv.customer_id)}
                   className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition text-left"
@@ -258,80 +311,104 @@ export default function InvoicesPage() {
                   </div>
                 </button>
 
-                {/* Expanded: editable line items */}
+                {/* Expanded: grouped by delivery date */}
                 {isOpen && (
                   <div className="border-t border-gray-100">
-                    <table className="w-full text-sm table-fixed">
-                      <colgroup>
-                        <col className="w-32" />
-                        <col className="w-auto" />
-                        <col className="w-20" />
-                        <col className="w-24" />
-                        <col className="w-24" />
-                        <col className="w-20" />
-                      </colgroup>
-                      <thead>
-                        <tr className="text-xs font-semibold text-gray-400 uppercase bg-gray-50 border-b border-gray-100">
-                          <th className="px-4 py-2 text-left">Date</th>
-                          <th className="px-4 py-2 text-left">Product</th>
-                          <th className="px-4 py-2 text-right">Qty</th>
-                          <th className="px-4 py-2 text-right">Unit Price</th>
-                          <th className="px-4 py-2 text-right">Line Total</th>
-                          <th className="px-4 py-2 text-center">Remove</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-50">
-                        {lines.map(line => {
-                          const qty = line.qty_override ?? line.qty;
-                          const lineTotal = (qty * line.unit_price).toFixed(2);
-                          return (
-                            <tr key={line.id} className={`${line.removed ? 'opacity-30 bg-gray-50' : 'hover:bg-gray-50'}`}>
-                              <td className="px-4 py-2.5 text-gray-500 text-xs">{fmtDate(line.delivery_date)}</td>
-                              <td className="px-4 py-2.5 font-medium text-gray-900">
-                                {line.crop_name}
-                                {line.size_name && <span className="text-gray-400 text-xs ml-1">({line.size_name})</span>}
-                              </td>
-                              <td className="px-4 py-2.5 text-right">
-                                <input
-                                  type="number"
-                                  min="1"
-                                  value={line.qty_override ?? line.qty}
-                                  onChange={e => setQtyOverride(inv.customer_id, line.id, e.target.value)}
-                                  disabled={line.removed}
-                                  className="w-14 text-center text-xs border border-gray-200 rounded px-1 py-1 outline-none focus:border-green-400 disabled:opacity-40"
-                                />
-                              </td>
-                              <td className="px-4 py-2.5 text-right text-gray-600">€{line.unit_price.toFixed(2)}</td>
-                              <td className="px-4 py-2.5 text-right font-semibold text-gray-900">
-                                {line.removed ? '—' : `€${lineTotal}`}
-                              </td>
-                              <td className="px-4 py-2.5 text-center">
-                                <button
-                                  onClick={() => toggleRemove(inv.customer_id, line.id)}
-                                  className={`text-xs font-semibold px-2 py-1 rounded transition ${
-                                    line.removed
-                                      ? 'bg-green-50 text-green-700 hover:bg-green-100'
-                                      : 'bg-red-50 text-red-600 hover:bg-red-100'
-                                  }`}
-                                >
-                                  {line.removed ? 'Restore' : '✕'}
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                    {grouped.map(({ date, lines: dayLines }) => {
+                      const daySubtotal = dayLines
+                        .filter(l => !l.removed)
+                        .reduce((s, l) => s + (l.qty_override ?? l.qty) * l.unit_price, 0);
 
-                    {/* Footer with totals + print */}
-                    <div className="flex items-center justify-between px-6 py-4 bg-gray-50 border-t border-gray-100">
+                      return (
+                        <div key={date}>
+                          {/* Week header */}
+                          <div className="flex items-center justify-between px-5 py-2 bg-gray-50 border-b border-gray-100">
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{fmtDate(date)}</span>
+                            <div className="flex items-center gap-3">
+                              <span className="text-xs text-gray-400">Week total: <strong className="text-gray-700">€{daySubtotal.toFixed(2)}</strong></span>
+                              <button
+                                onClick={() => setAddModal({ customerId: inv.customer_id, date })}
+                                className="text-xs text-green-600 hover:text-green-700 font-semibold px-2 py-0.5 border border-green-200 rounded hover:bg-green-50 transition"
+                              >
+                                + Add line
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Lines for this date */}
+                          <table className="w-full text-sm table-fixed">
+                            <colgroup>
+                              <col className="w-auto" />
+                              <col className="w-16" />
+                              <col className="w-24" />
+                              <col className="w-24" />
+                              <col className="w-16" />
+                            </colgroup>
+                            <tbody className="divide-y divide-gray-50">
+                              {dayLines.map(line => {
+                                const qty = line.qty_override ?? line.qty;
+                                const lineTotal = (qty * line.unit_price).toFixed(2);
+                                return (
+                                  <tr key={line.id} className={`${line.removed ? 'opacity-30 bg-gray-50' : 'hover:bg-gray-50'}`}>
+                                    <td className="px-5 py-2.5 font-medium text-gray-900">
+                                      {line.crop_name}
+                                      {line.size_name && <span className="text-gray-400 text-xs ml-1">({line.size_name})</span>}
+                                      {line.manual && <span className="ml-1 text-[10px] text-green-600 font-semibold">manual</span>}
+                                    </td>
+                                    <td className="px-2 py-2.5 text-center">
+                                      <input
+                                        type="number" min="1"
+                                        value={line.qty_override ?? line.qty}
+                                        onChange={e => setQtyOverride(inv.customer_id, line.id, e.target.value)}
+                                        disabled={line.removed}
+                                        className="w-12 text-center text-xs border border-gray-200 rounded px-1 py-1 outline-none focus:border-green-400 disabled:opacity-40"
+                                      />
+                                    </td>
+                                    <td className="px-2 py-2.5 text-center">
+                                      <div className="flex items-center justify-center gap-0.5">
+                                        <span className="text-gray-400 text-xs">€</span>
+                                        <input
+                                          type="number" min="0" step="0.01"
+                                          value={line.unit_price}
+                                          onChange={e => setPriceOverride(inv.customer_id, line.id, e.target.value)}
+                                          disabled={line.removed}
+                                          className="w-16 text-center text-xs border border-gray-200 rounded px-1 py-1 outline-none focus:border-green-400 disabled:opacity-40"
+                                        />
+                                      </div>
+                                    </td>
+                                    <td className="px-2 py-2.5 text-right font-semibold text-gray-900 text-sm">
+                                      {line.removed ? '—' : `€${lineTotal}`}
+                                    </td>
+                                    <td className="px-3 py-2.5 text-center">
+                                      <button
+                                        onClick={() => toggleRemove(inv.customer_id, line.id)}
+                                        className={`text-xs font-bold px-2 py-1 rounded transition ${
+                                          line.removed
+                                            ? 'bg-green-50 text-green-700 hover:bg-green-100'
+                                            : 'text-red-400 hover:text-red-600 hover:bg-red-50'
+                                        }`}
+                                      >
+                                        {line.removed ? '↩' : '✕'}
+                                      </button>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      );
+                    })}
+
+                    {/* Footer */}
+                    <div className="flex items-center justify-between px-6 py-4 bg-gray-50 border-t border-gray-200">
                       <div className="flex gap-6 text-sm">
                         <span className="text-gray-500">Subtotal: <strong className="text-gray-900">€{subtotal.toFixed(2)}</strong></span>
                         <span className="text-gray-500">VAT 7%: <strong className="text-gray-900">€{vat.toFixed(2)}</strong></span>
                         <span className="text-gray-500">Total: <strong className="text-gray-900 text-base">€{total.toFixed(2)}</strong></span>
                       </div>
                       <button
-                        onClick={() => handlePrint({ ...inv, lines })}
+                        onClick={() => handlePrint({ ...inv })}
                         className="px-5 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded-xl transition"
                       >
                         Print Invoice
@@ -342,6 +419,46 @@ export default function InvoicesPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Add Line Modal */}
+      {addModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <h2 className="text-lg font-bold text-gray-900 mb-1">Add Line</h2>
+            <p className="text-xs text-gray-400 mb-4">{fmtDate(addModal.date)}</p>
+            <div className="space-y-3 mb-5">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Product</label>
+                <input value={addForm.crop_name} onChange={e => setAddForm({ ...addForm, crop_name: e.target.value })}
+                  placeholder="e.g. Radish Red" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-green-500" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Size / Note</label>
+                <input value={addForm.size_name} onChange={e => setAddForm({ ...addForm, size_name: e.target.value })}
+                  placeholder="e.g. 100g" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-green-500" />
+              </div>
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Qty</label>
+                  <input type="number" min="1" value={addForm.qty} onChange={e => setAddForm({ ...addForm, qty: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-green-500" />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Unit Price (€)</label>
+                  <input type="number" min="0" step="0.01" value={addForm.unit_price} onChange={e => setAddForm({ ...addForm, unit_price: e.target.value })}
+                    placeholder="0.00" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-green-500" />
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => { setAddModal(null); setAddForm({ crop_name: '', size_name: '', qty: '1', unit_price: '' }); }}
+                className="flex-1 px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition">Cancel</button>
+              <button onClick={handleAddLine} disabled={!addForm.crop_name.trim()}
+                className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition">Add</button>
+            </div>
+          </div>
         </div>
       )}
     </div>
