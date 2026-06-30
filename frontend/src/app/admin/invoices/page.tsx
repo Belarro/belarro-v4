@@ -16,6 +16,12 @@ interface InvoiceLine {
   manual?: boolean;
 }
 
+interface CropOption {
+  id: string;
+  name_en: string;
+  variants: { size_name: string; price_eur: number | null }[];
+}
+
 interface CustomerInvoice {
   customer_id: string;
   customer_name: string;
@@ -74,10 +80,11 @@ export default function InvoicesPage() {
   const [loading, setLoading] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [editedLines, setEditedLines] = useState<Record<string, InvoiceLine[]>>({});
+  const [crops, setCrops] = useState<CropOption[]>([]);
 
   // Add line modal state
   const [addModal, setAddModal] = useState<{ customerId: string; date: string } | null>(null);
-  const [addForm, setAddForm] = useState({ crop_name: '', size_name: '', qty: '1', unit_price: '' });
+  const [addForm, setAddForm] = useState({ crop_id: '', size_name: '', qty: '1', unit_price: '' });
 
   const load = useCallback(async (m: string) => {
     setLoading(true);
@@ -98,6 +105,12 @@ export default function InvoicesPage() {
   }, []);
 
   useEffect(() => { load(month); }, [month, load]);
+
+  useEffect(() => {
+    fetch('/api/crops').then(r => r.json()).then(j => {
+      if (j.success) setCrops((j.data || []).filter((c: any) => !c.deleted_at));
+    });
+  }, []);
 
   const getLines = (customerId: string) => editedLines[customerId] || [];
 
@@ -124,16 +137,21 @@ export default function InvoicesPage() {
     }));
   };
 
+  const selectedCrop = crops.find(c => c.id === addForm.crop_id) || null;
+  const sizeOptions = selectedCrop?.variants || [];
+
   const handleAddLine = () => {
-    if (!addModal) return;
+    if (!addModal || !addForm.crop_id) return;
+    const crop = crops.find(c => c.id === addForm.crop_id);
+    if (!crop) return;
     const qty = parseInt(addForm.qty) || 1;
     const price = parseFloat(addForm.unit_price) || 0;
     const newLine: InvoiceLine = {
       id: `manual-${Date.now()}`,
       order_id: '',
       delivery_date: addModal.date,
-      crop_name: addForm.crop_name.trim(),
-      size_name: addForm.size_name.trim(),
+      crop_name: crop.name_en,
+      size_name: addForm.size_name,
       qty,
       unit_price: price,
       line_total: +(qty * price).toFixed(2),
@@ -146,7 +164,7 @@ export default function InvoicesPage() {
       [addModal.customerId]: [...(prev[addModal.customerId] || []), newLine],
     }));
     setAddModal(null);
-    setAddForm({ crop_name: '', size_name: '', qty: '1', unit_price: '' });
+    setAddForm({ crop_id: '', size_name: '', qty: '1', unit_price: '' });
   };
 
   const handlePrint = (inv: CustomerInvoice) => {
@@ -431,13 +449,33 @@ export default function InvoicesPage() {
             <div className="space-y-3 mb-5">
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Product</label>
-                <input value={addForm.crop_name} onChange={e => setAddForm({ ...addForm, crop_name: e.target.value })}
-                  placeholder="e.g. Radish Red" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-green-500" />
+                <select value={addForm.crop_id} onChange={e => {
+                  const crop = crops.find(c => c.id === e.target.value);
+                  const firstVariant = crop?.variants?.[0];
+                  setAddForm({
+                    ...addForm,
+                    crop_id: e.target.value,
+                    size_name: firstVariant?.size_name || '',
+                    unit_price: firstVariant?.price_eur != null ? String(firstVariant.price_eur) : '',
+                  });
+                }} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-green-500">
+                  <option value="">Select crop...</option>
+                  {crops.map(c => <option key={c.id} value={c.id}>{c.name_en}</option>)}
+                </select>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Size / Note</label>
-                <input value={addForm.size_name} onChange={e => setAddForm({ ...addForm, size_name: e.target.value })}
-                  placeholder="e.g. 100g" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-green-500" />
+                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Size</label>
+                <select value={addForm.size_name} onChange={e => {
+                  const variant = sizeOptions.find(v => v.size_name === e.target.value);
+                  setAddForm({
+                    ...addForm,
+                    size_name: e.target.value,
+                    unit_price: variant?.price_eur != null ? String(variant.price_eur) : addForm.unit_price,
+                  });
+                }} disabled={!selectedCrop} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-40">
+                  <option value="">Select size...</option>
+                  {sizeOptions.map(v => <option key={v.size_name} value={v.size_name}>{v.size_name}</option>)}
+                </select>
               </div>
               <div className="flex gap-3">
                 <div className="flex-1">
@@ -453,9 +491,9 @@ export default function InvoicesPage() {
               </div>
             </div>
             <div className="flex gap-3">
-              <button onClick={() => { setAddModal(null); setAddForm({ crop_name: '', size_name: '', qty: '1', unit_price: '' }); }}
+              <button onClick={() => { setAddModal(null); setAddForm({ crop_id: '', size_name: '', qty: '1', unit_price: '' }); }}
                 className="flex-1 px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition">Cancel</button>
-              <button onClick={handleAddLine} disabled={!addForm.crop_name.trim()}
+              <button onClick={handleAddLine} disabled={!addForm.crop_id}
                 className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition">Add</button>
             </div>
           </div>
