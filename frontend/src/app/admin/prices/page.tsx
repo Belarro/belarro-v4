@@ -47,19 +47,11 @@ export default function PricesPage() {
 
       const rawCrops: Crop[] = (json.data || []).filter((c: Crop) => !c.deleted_at);
 
-      // Normalize size_name: purely numeric names (e.g. "100") become "100g"
-      // so "100" and "100g" collapse to the same column
-      const normalize = (v: Variant): string => {
-        const n = v.size_name.trim();
-        return /^\d+(\.\d+)?$/.test(n) ? `${n}g` : n;
-      };
-
-      // Collect unique normalized size names, keyed by grams for sorting
-      const sizeMap = new Map<string, number>(); // normalized_name -> size_grams
+      // Collect all unique size names, sorted by grams
+      const sizeMap = new Map<string, number>(); // size_name -> size_grams
       for (const crop of rawCrops) {
         for (const v of crop.variants || []) {
-          const key = normalize(v);
-          if (!sizeMap.has(key)) sizeMap.set(key, v.size_grams);
+          if (!sizeMap.has(v.size_name)) sizeMap.set(v.size_name, v.size_grams);
         }
       }
       const sizes = Array.from(sizeMap.entries())
@@ -70,8 +62,7 @@ export default function PricesPage() {
       setCrops(rawCrops.map(crop => {
         const editedPrices: Record<string, string> = {};
         for (const size of sizes) {
-          // Match by normalized name — handles "100" and "100g" as the same
-          const v = (crop.variants || []).find(x => normalize(x) === size);
+          const v = (crop.variants || []).find(x => x.size_name === size);
           editedPrices[size] = v?.price_eur != null ? String(v.price_eur) : '';
         }
         return { ...crop, editedPrices, dirty: false };
@@ -89,16 +80,10 @@ export default function PricesPage() {
     ));
   };
 
-  const normalizeName = (v: Variant): string => {
-    const n = v.size_name.trim();
-    return /^\d+(\.\d+)?$/.test(n) ? `${n}g` : n;
-  };
-
   const buildVariantsForCrop = (crop: EditedCrop, sizes: string[], sizeGrams: Map<string, number>): Variant[] => {
-    // Key existing variants by normalized name so "100" and "100g" merge to one
     const variantMap = new Map<string, Variant>();
     for (const v of crop.variants || []) {
-      variantMap.set(normalizeName(v), { ...v });
+      variantMap.set(v.size_name, { ...v });
     }
     for (const size of sizes) {
       const priceStr = crop.editedPrices[size];
@@ -289,11 +274,7 @@ export default function PricesPage() {
                             value={val}
                             onChange={e => handlePriceChange(crop.id, size, e.target.value)}
                             placeholder={existing ? '—' : ''}
-                            className={`w-16 text-center text-sm border rounded-lg px-2 py-1 outline-none transition
-                              ${val !== '' && val !== (existing?.price_eur != null ? String(existing.price_eur) : '')
-                                ? 'border-yellow-400 bg-yellow-50'
-                                : 'border-gray-200 bg-transparent focus:border-green-400'}
-                              focus:ring-2 focus:ring-green-200`}
+                            className="w-16 text-center text-sm border border-gray-200 bg-transparent rounded-lg px-2 py-1 outline-none transition focus:border-green-400 focus:ring-2 focus:ring-green-200"
                           />
                         </div>
                       </td>
