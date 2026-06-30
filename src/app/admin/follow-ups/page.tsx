@@ -32,6 +32,8 @@ export default function FollowUpsPage() {
     sent_via: 'whatsapp' as 'whatsapp' | 'email' | 'call' | 'visit',
     notes: ''
   });
+  const [deleteTarget, setDeleteTarget] = useState<FollowUp | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchFollowups = async () => {
     try {
@@ -75,6 +77,20 @@ export default function FollowUpsPage() {
       }
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await fetch(`/api/follow-ups/${deleteTarget.id}`, { method: 'DELETE' });
+      setDeleteTarget(null);
+      fetchFollowups();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -178,21 +194,66 @@ export default function FollowUpsPage() {
                 </div>
 
                 {activeTab === 'pending' ? (
-                  <button
-                    onClick={() => { setSelectedFollowup(f); setShowLogModal(true); }}
-                    className="mt-6 w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg text-xs transition"
-                  >
-                    Log Follow-up Sent
-                  </button>
+                  <div className="mt-6 flex gap-2">
+                    <button
+                      onClick={() => { setSelectedFollowup(f); setShowLogModal(true); }}
+                      className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg text-xs transition"
+                    >
+                      Log Follow-up Sent
+                    </button>
+                    <button
+                      onClick={() => setDeleteTarget(f)}
+                      className="px-3 py-2 rounded-lg border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 text-xs font-semibold transition"
+                      title="Delete"
+                    >
+                      🗑
+                    </button>
+                  </div>
                 ) : (
-                  <div className="mt-6 text-[10px] text-gray-400 font-semibold uppercase flex justify-between">
-                    <span>Sent via: {f.sent_via}</span>
-                    <span>Date: {f.sent_date ? new Date(f.sent_date).toLocaleDateString() : '—'}</span>
+                  <div className="mt-6 flex items-center justify-between gap-2">
+                    <div className="text-[10px] text-gray-400 font-semibold uppercase flex gap-4">
+                      <span>Sent via: {f.sent_via}</span>
+                      <span>Date: {f.sent_date ? new Date(f.sent_date).toLocaleDateString() : '—'}</span>
+                    </div>
+                    <button
+                      onClick={() => setDeleteTarget(f)}
+                      className="px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 text-xs font-semibold transition"
+                      title="Delete"
+                    >
+                      🗑
+                    </button>
                   </div>
                 )}
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Delete confirmation */}
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 border border-gray-200">
+            <h2 className="text-xl font-bold text-red-600 mb-2">Delete follow-up?</h2>
+            <p className="text-sm text-gray-600 mb-6">
+              This will permanently delete the follow-up for <strong>{deleteTarget.customer.name}</strong>. Cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold px-4 py-2 rounded-lg text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold px-4 py-2 rounded-lg text-sm disabled:opacity-50"
+              >
+                {deleting ? 'Deleting...' : 'Yes, Delete'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
