@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     const tuesdays = tuesdaysInMonth(year, mon);
 
     const [orders, variants, crops, customers] = await Promise.all([
-      fetchFromSupabase('/belarro_v4_order?status=in.(active,pending_seed,growing)&deleted_at=is.null&select=*'),
+      fetchFromSupabase('/belarro_v4_order?deleted_at=is.null&select=*'),
       fetchFromSupabase('/belarro_v4_product_variant?select=*'),
       fetchFromSupabase('/belarro_v4_crop?select=id,name_en&deleted_at=is.null'),
       fetchFromSupabase('/belarro_v4_customer?deleted_at=is.null&select=id,name,restaurant_name,email,address,tax_number,net_days'),
