@@ -44,6 +44,14 @@ const sections = [
     ],
   },
   {
+    title: 'Marketing',
+    items: [
+      { label: 'Submissions', href: '/admin/submissions', icon: ClipboardListIcon },
+      { label: 'Testimonials', href: '/admin/testimonials', icon: SparklesIcon },
+      { label: 'Crop Summary', href: '/admin/prices', icon: LeafIcon },
+    ],
+  },
+  {
     title: null,
     items: [{ label: 'Settings', href: '/admin/settings', icon: SparklesIcon }],
   },
