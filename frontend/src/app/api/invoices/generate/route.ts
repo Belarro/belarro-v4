@@ -37,10 +37,10 @@ export async function GET(request: NextRequest) {
     const tuesdays = tuesdaysInMonth(year, mon);
 
     const [orders, variants, crops, customers] = await Promise.all([
-      fetchFromSupabase('/belarro_v4_order?deleted_at=is.null&select=*'),
-      fetchFromSupabase('/belarro_v4_product_variant?select=*'),
-      fetchFromSupabase('/belarro_v4_crop?select=id,name_en&deleted_at=is.null'),
-      fetchFromSupabase('/belarro_v4_customer?select=id,name,restaurant_name,email,address,tax_number,net_days'),
+      fetchFromSupabase('/belarro_v4_order?deleted_at=is.null&select=*').catch((e: any) => { throw new Error('orders: ' + e.message); }),
+      fetchFromSupabase('/belarro_v4_product_variant?select=*').catch((e: any) => { throw new Error('variants: ' + e.message); }),
+      fetchFromSupabase('/belarro_v4_crop?select=id,name_en&deleted_at=is.null').catch((e: any) => { throw new Error('crops: ' + e.message); }),
+      fetchFromSupabase('/belarro_v4_customer?select=id,name,restaurant_name,email,address,tax_number,net_days').catch((e: any) => { throw new Error('customers: ' + e.message); }),
     ]);
 
     const varMap = new Map<string, any>((variants || []).map((v: any) => [v.id, v]));
