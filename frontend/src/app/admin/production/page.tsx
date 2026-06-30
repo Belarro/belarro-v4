@@ -279,7 +279,13 @@ export default function ProductionPage() {
                             <span className="text-xs font-normal text-gray-500 ml-1">trays</span>
                           </span>
                         </div>
-                        <table className="w-full text-sm">
+                        <table className="w-full text-sm table-fixed">
+                          <colgroup>
+                            <col className="w-auto" />
+                            <col className="w-20" />
+                            <col className="w-24" />
+                            <col className="w-28" />
+                          </colgroup>
                           <thead>
                             <tr className="text-xs font-semibold text-gray-400 uppercase border-b border-gray-100">
                               <th className="px-5 py-2 text-left">Variety</th>
