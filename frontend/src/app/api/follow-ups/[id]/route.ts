@@ -24,6 +24,34 @@ const NEW_LEAD_GAPS: Record<number, number> = { 1: 0, 2: 2, 3: 5, 4: 14, 5: 30 }
 // Days between stages for re-engage flow
 const REENGAGE_GAPS: Record<number, number> = { 1: 0, 2: 5, 3: 14, 4: 30 };
 
+export async function DELETE(_request: NextRequest, props: Params) {
+  try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth.response;
+    const { id } = await props.params;
+
+    // Get the follow-up to find location_id
+    const current = await fetchFromSupabase(`/belarro_v4_follow_up?id=eq.${id}&select=location_id`);
+    const locationId = current?.[0]?.location_id;
+
+    // Delete all follow-ups for this location
+    if (locationId) {
+      await fetchFromSupabase(`/belarro_v4_follow_up?location_id=eq.${locationId}`, { method: 'DELETE' });
+      await fetchFromSupabase(`/locations?id=eq.${locationId}`, { method: 'DELETE' });
+    } else {
+      await fetchFromSupabase(`/belarro_v4_follow_up?id=eq.${id}`, { method: 'DELETE' });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Follow-up DELETE error:', error);
+    return NextResponse.json(
+      { success: false, error: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    );
+  }
+}
+
 export async function PUT(request: NextRequest, props: Params) {
   try {
     const auth = await requireAuth();

@@ -114,6 +114,8 @@ export default function FollowUpsPage() {
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [sendingEmail, setSendingEmail] = useState<string | null>(null); // followup id being emailed
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<FollowUp | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchFollowups = async () => {
     try {
@@ -284,6 +286,20 @@ export default function FollowUpsPage() {
     setShowMessage(false);
     setSelected(null);
     fetchFollowups();
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await fetch(`/api/follow-ups/${deleteTarget.id}`, { method: 'DELETE' });
+      setDeleteTarget(null);
+      fetchFollowups();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const markReplied = async (followup: FollowUp) => {
@@ -464,6 +480,11 @@ export default function FollowUpsPage() {
               >
                 Converted
               </button>
+              <button
+                onClick={() => setDeleteTarget(f)}
+                className="px-2 py-1.5 rounded-lg border border-red-200 bg-red-50 text-red-500 hover:bg-red-100 text-xs transition"
+                title="Delete"
+              >🗑</button>
             </div>
           </div>
         )}
@@ -540,6 +561,11 @@ export default function FollowUpsPage() {
               >
                 Converted
               </button>
+              <button
+                onClick={() => setDeleteTarget(f)}
+                className="px-2 py-1.5 rounded-lg border border-red-200 bg-red-50 text-red-500 hover:bg-red-100 text-xs transition"
+                title="Delete"
+              >🗑</button>
             </div>
             <button
               onClick={() => { setSelected(f); setShowModal(true); }}
@@ -574,6 +600,11 @@ export default function FollowUpsPage() {
               >
                 Converted
               </button>
+              <button
+                onClick={() => setDeleteTarget(f)}
+                className="px-2 py-1.5 rounded-lg border border-red-200 bg-red-50 text-red-500 hover:bg-red-100 text-xs transition"
+                title="Delete"
+              >🗑</button>
             </div>
           </div>
         )}
@@ -925,6 +956,28 @@ export default function FollowUpsPage() {
       {snoozeSuccess && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-sm font-semibold px-5 py-3 rounded-xl shadow-xl z-50">
           Snoozed — will reappear on {new Date(snoozeSuccess).toLocaleDateString('en-DE', { day: 'numeric', month: 'long', year: 'numeric' })}
+        </div>
+      )}
+
+      {/* Delete confirmation */}
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm border border-gray-200 p-6">
+            <h2 className="text-lg font-bold text-red-600 mb-2">Delete this lead?</h2>
+            <p className="text-sm text-gray-600 mb-6">
+              Permanently deletes <strong>{deleteTarget.location.name}</strong> and all follow-up records. Cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setDeleteTarget(null)}
+                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-2 rounded-lg text-sm">
+                Cancel
+              </button>
+              <button onClick={handleDelete} disabled={deleting}
+                className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-semibold py-2 rounded-lg text-sm">
+                {deleting ? 'Deleting...' : 'Yes, Delete'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
