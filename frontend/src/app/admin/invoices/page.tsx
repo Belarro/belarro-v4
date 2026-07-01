@@ -311,7 +311,9 @@ export default function InvoicesPage() {
             const lines = getLines(inv.customer_id);
             const { subtotal, vat, total } = calcTotals(lines);
             const isOpen = openId === inv.customer_id;
-            const activeCount = lines.filter(l => !l.removed).length;
+            const activeLines = lines.filter(l => !l.removed);
+            const activeCount = new Set(activeLines.map(l => l.delivery_date)).size;
+            const itemCount = activeLines.length;
             const grouped = groupByDate(lines);
 
             return (
@@ -323,7 +325,7 @@ export default function InvoicesPage() {
                 >
                   <div className="flex items-center gap-4">
                     <span className="font-bold text-gray-900 text-base">{inv.customer_name}</span>
-                    <span className="text-xs text-gray-400">{activeCount} deliveries</span>
+                    <span className="text-xs text-gray-400">{activeCount} visits · {itemCount} items</span>
                   </div>
                   <div className="flex items-center gap-6">
                     <div className="text-right">
