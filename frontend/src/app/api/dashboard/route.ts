@@ -2,231 +2,205 @@ import { NextRequest, NextResponse } from 'next/server';
 import { fetchFromSupabase } from '@/lib/supabase';
 import { requireAuth } from '@/lib/auth';
 
+function isoWeek(d: Date): number {
+  const tmp = new Date(d);
+  tmp.setHours(0, 0, 0, 0);
+  tmp.setDate(tmp.getDate() + 3 - ((tmp.getDay() + 6) % 7));
+  const week1 = new Date(tmp.getFullYear(), 0, 4);
+  return 1 + Math.round(((tmp.getTime() - week1.getTime()) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7);
+}
+
+function tuesdaysInMonth(year: number, month: number): Date[] {
+  const tuesdays: Date[] = [];
+  const d = new Date(year, month - 1, 1);
+  while (d.getDay() !== 2) d.setDate(d.getDate() + 1);
+  while (d.getMonth() === month - 1) {
+    tuesdays.push(new Date(d));
+    d.setDate(d.getDate() + 7);
+  }
+  return tuesdays;
+}
+
+// All past Tuesdays from startYear/startMonth up to and including today
+function allPastTuesdays(startYear: number, startMonth: number): Date[] {
+  const today = new Date();
+  today.setHours(23, 59, 59, 999);
+  const result: Date[] = [];
+  let y = startYear;
+  let m = startMonth;
+  while (y < today.getFullYear() || (y === today.getFullYear() && m <= today.getMonth() + 1)) {
+    for (const t of tuesdaysInMonth(y, m)) {
+      if (t <= today) result.push(t);
+    }
+    m++;
+    if (m > 12) { m = 1; y++; }
+    if (y > today.getFullYear() + 1) break; // safety
+  }
+  return result;
+}
+
+interface DeliveryStats {
+  revenue: number;
+  packages: number; // total quantity units
+  grams: number;    // total grams (for kg display)
+}
+
+function calcDeliveries(
+  tuesdays: Date[],
+  orders: any[],
+  varMap: Map<string, any>,
+  cropMap: Map<string, any>,
+  procMap: Map<string, any>
+): DeliveryStats {
+  let revenue = 0;
+  let packages = 0;
+  let grams = 0;
+
+  for (const tuesday of tuesdays) {
+    const weekNum = isoWeek(tuesday);
+    for (const order of orders) {
+      if (order.status === 'paused' || order.status === 'cancelled') continue;
+      if (order.frequency === 'biweekly' && weekNum % 2 !== 0) continue;
+
+      const variant = varMap.get(order.product_variant_id);
+      if (!variant) continue;
+      const crop = cropMap.get(variant.crop_id);
+      if (!crop) continue;
+
+      const qty = order.quantity || 1;
+      const price = variant.price_eur || 0;
+      revenue += qty * price;
+      packages += qty;
+
+      // grams: qty × package weight from size_name (e.g. "225g" → 225)
+      const proc = procMap.get(crop.id);
+      const weightPerUnit = parseWeightFromSize(variant.size_name, proc);
+      grams += qty * weightPerUnit;
+    }
+  }
+
+  return {
+    revenue: +revenue.toFixed(2),
+    packages,
+    grams,
+  };
+}
+
+function parseWeightFromSize(sizeName: string, proc: any): number {
+  if (!sizeName) return 0;
+  const match = sizeName.match(/(\d+)\s*g/i);
+  if (match) return parseInt(match[1]);
+  // fallback: use harvest_weight_grams from proc if available
+  if (proc?.harvest_weight_grams) return proc.harvest_weight_grams;
+  return 0;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const auth = await requireAuth();
     if (!auth.ok) return auth.response;
-    let totalCrops = 0;
-    let activeCrops = 0;
-    let totalCustomers = 0;
-    let activeCustomers = 0;
-    let prospects = 0;
-    let pausedCustomers = 0;
-    let inactiveCustomers = 0;
-    let totalOrders = 0;
-    let pendingOrders = 0;
-    let totalOrderValue = 0;
-    let activeSeedingBatches = 0;
-    let pendingFollowUps = 0;
-    let followUpConversionRate = 0;
-    let websiteLeadCount = 0;
-    let saletrackerLeadCount = 0;
-    let seedReorderAlerts = 0;
-    let packageReorderAlerts = 0;
-    
-    let recentOrders: any[] = [];
-    let recentCustomers: any[] = [];
 
-    try {
-      // Fetch crops
-      const crops = await fetchFromSupabase('/belarro_v4_crop?select=id,status,deleted_at');
-      const nonDeletedCrops = (crops || []).filter((c: any) => !c.deleted_at);
-      totalCrops = nonDeletedCrops.length;
-      activeCrops = nonDeletedCrops.filter((c: any) => c.status === 'active').length;
+    const today = new Date();
+    const thisYear = today.getFullYear();
+    const thisMonth = today.getMonth() + 1;
 
-      // Fetch customers
-      const customers = await fetchFromSupabase('/belarro_v4_customer?deleted_at=is.null&select=id,name,status,created_at');
-      const custs = customers || [];
-      totalCustomers = custs.length;
-      activeCustomers = custs.filter((c: any) => c.status === 'active').length;
-      prospects = custs.filter((c: any) => c.status === 'prospect').length;
-      pausedCustomers = custs.filter((c: any) => c.status === 'paused').length;
-      inactiveCustomers = custs.filter((c: any) => c.status === 'inactive').length;
-      recentCustomers = [...custs]
-        .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        .slice(0, 5);
+    const [crops, customers, orders, variants, procs, batches, harvests, seedInv, packageInv] = await Promise.all([
+      fetchFromSupabase('/belarro_v4_crop?select=id,status,deleted_at,name_en'),
+      fetchFromSupabase('/belarro_v4_customer?deleted_at=is.null&select=id,name,restaurant_name,status,created_at'),
+      fetchFromSupabase('/belarro_v4_order?deleted_at=is.null&select=*'),
+      fetchFromSupabase('/belarro_v4_product_variant?select=id,price_eur,size_name,crop_id'),
+      fetchFromSupabase('/belarro_v4_processing_step?select=*').catch(() => []),
+      fetchFromSupabase('/belarro_v4_seeding_batch?select=id').catch(() => []),
+      fetchFromSupabase('/belarro_v4_harvest_record?select=seeding_batch_id').catch(() => []),
+      fetchFromSupabase('/belarro_v4_seed_inventory?select=*,crop:belarro_v4_crop(*)').catch(() => []),
+      fetchFromSupabase('/belarro_v4_package_inventory?select=*').catch(() => []),
+    ]);
 
-      // Fetch variants and orders to calculate values
-      const [orders, variants] = await Promise.all([
-        fetchFromSupabase('/belarro_v4_order?deleted_at=is.null&select=*'),
-        fetchFromSupabase('/belarro_v4_product_variant?select=id,price_eur,size_name,crop_id')
-      ]);
+    const nonDeletedCrops = (crops || []).filter((c: any) => !c.deleted_at);
+    const activeCrops = nonDeletedCrops.filter((c: any) => c.status === 'active').length;
 
-      const ords = orders || [];
-      const vars = variants || [];
-      const varMap = new Map<string, any>(vars.map((v: any) => [v.id, v]));
+    const custs = customers || [];
+    const activeCustomers = custs.filter((c: any) => c.status === 'active').length;
 
-      totalOrders = ords.length;
-      pendingOrders = ords.filter((o: any) => o.status === 'pending_seed' || o.status === 'growing' || o.status === 'ready_harvest').length;
+    const varMap = new Map<string, any>((variants || []).map((v: any) => [v.id, v]));
+    const cropMap = new Map<string, any>(nonDeletedCrops.map((c: any) => [c.id, c]));
+    const procMap = new Map<string, any>((procs || []).map((p: any) => [p.crop_id, p]));
 
-      const activeOrders = ords.filter((o: any) => o.status !== 'cancelled');
-      totalOrderValue = activeOrders.reduce((sum: number, order: any) => {
-        const variant = varMap.get(order.product_variant_id);
-        const price = variant ? (variant.price_eur || 0) : 0;
-        return sum + price * order.quantity;
-      }, 0);
+    const ords = (orders || []);
 
-      // Fetch seeding batches and harvests
-      const [batches, harvests] = await Promise.all([
-        fetchFromSupabase('/belarro_v4_seeding_batch?select=id'),
-        fetchFromSupabase('/belarro_v4_harvest_record?select=seeding_batch_id')
-      ]);
+    // Active orders only (not paused/cancelled)
+    const liveOrders = ords.filter((o: any) => o.status !== 'cancelled' && o.status !== 'paused');
 
-      const bts = batches || [];
-      const hvs = harvests || [];
-      const harvestedBatchIds = new Set(hvs.map((h: any) => h.seeding_batch_id));
-      activeSeedingBatches = bts.filter((b: any) => !harvestedBatchIds.has(b.id)).length;
+    // Monthly deliveries: all Tuesdays this month up to today
+    const monthTuesdays = tuesdaysInMonth(thisYear, thisMonth).filter(t => t <= today);
+    const monthStats = calcDeliveries(monthTuesdays, liveOrders, varMap, cropMap, procMap);
 
-      // Fetch followups — only count due today or overdue
-      const followups = await fetchFromSupabase('/belarro_v4_follow_up?select=id,status,due_date,location_id&location_id=not.is.null');
-      const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
-      pendingFollowUps = (followups || []).filter((f: any) =>
-        f.status === 'pending' && new Date(f.due_date) <= todayEnd
-      ).length;
-      const totalFollowUps = (followups || []).length;
-      const completedFollowUps = (followups || []).filter((f: any) => f.status === 'completed' || f.status === 'sent').length;
-      followUpConversionRate = totalFollowUps > 0
-        ? parseFloat(((completedFollowUps / totalFollowUps) * 100).toFixed(1))
-        : 0;
+    // All-time deliveries: from Jan 2026 (farm start) to today
+    const allTuesdays = allPastTuesdays(2026, 1);
+    const allTimeStats = calcDeliveries(allTuesdays, liveOrders, varMap, cropMap, procMap);
 
-      // Lead source breakdown: website leads vs saletracker (customers w/o website lead).
-      try {
-        const websiteLeads = await fetchFromSupabase('/belarro_v4_website_lead?select=id,source');
-        websiteLeadCount = (websiteLeads || []).length;
-      } catch {
-        websiteLeadCount = 0; // table not applied yet
-      }
-      // Everything in customers that did not originate from a website lead is
-      // treated as saletracker/manual for the breakdown.
-      saletrackerLeadCount = totalCustomers;
+    // Next Tuesday's expected revenue (forward-looking, 1 week)
+    const nextTuesdayDate = new Date(today);
+    while (nextTuesdayDate.getDay() !== 2) nextTuesdayDate.setDate(nextTuesdayDate.getDate() + 1);
+    const nextWeekStats = calcDeliveries([nextTuesdayDate], liveOrders, varMap, cropMap, procMap);
 
-      // Fetch inventory
-      const [seedInv, packageInv] = await Promise.all([
-        fetchFromSupabase('/belarro_v4_seed_inventory?select=*,crop:belarro_v4_crop(*)'),
-        fetchFromSupabase('/belarro_v4_package_inventory?select=*')
-      ]);
+    // Active operations
+    const bts = batches || [];
+    const hvs = harvests || [];
+    const harvestedBatchIds = new Set(hvs.map((h: any) => h.seeding_batch_id));
+    const activeSeedingBatches = bts.filter((b: any) => !harvestedBatchIds.has(b.id)).length;
 
-      seedReorderAlerts = (seedInv || []).filter((inv: any) => {
-        if (!inv.crop) return false;
-        const remainingTrays = Math.floor(inv.quantity_grams / (inv.crop.seeds_per_tray || 60));
-        return remainingTrays < (inv.reorder_threshold_trays || 20);
-      }).length;
+    const followups = await fetchFromSupabase('/belarro_v4_follow_up?select=id,status,due_date&location_id=not.is.null').catch(() => []);
+    const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
+    const pendingFollowUps = (followups || []).filter((f: any) =>
+      f.status === 'pending' && new Date(f.due_date) <= todayEnd
+    ).length;
 
-      packageReorderAlerts = (packageInv || []).filter(
-        (inv: any) => inv.quantity_available < inv.reorder_threshold
-      ).length;
-
-      // Map recent orders
-      recentOrders = [...ords]
-        .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        .slice(0, 5)
-        .map((o: any) => {
-          const cust = custs.find((c: any) => c.id === o.customer_id);
-          const vr = varMap.get(o.product_variant_id);
-          return {
-            id: o.id,
-            customer: cust ? cust.name : 'Unknown Customer',
-            product: vr ? vr.size_name : 'Unknown Variant',
-            quantity: o.quantity,
-            date: o.created_at,
-            status: o.status
-          };
-        });
-
-    } catch (dbErr) {
-      console.warn('Database tables not fully ready, falling back to mock dashboard data:', dbErr);
-      // Fallback Mock Data
-      return NextResponse.json({
-        success: true,
-        data: {
-          overview: {
-            total_crops: 8,
-            active_crops: 5,
-            total_customers: 18,
-            active_customers: 12,
-            prospect_customers: 6,
-            total_orders: 47,
-            pending_orders: 3,
-          },
-          revenue: {
-            total_order_value_eur: 4250.00,
-            average_order_value_eur: 90.43,
-            orders_counted: 47,
-          },
-          operations: {
-            active_seeding_batches: 4,
-            pending_follow_ups: 8,
-          },
-          alerts: {
-            seed_reorder_alerts: 2,
-            seed_items_below_threshold: [],
-            package_reorder_alerts: 1,
-            package_items_below_threshold: [],
-          },
-          customer_funnel: {
-            prospects: 6,
-            active: 12,
-            paused: 0,
-            inactive: 0,
-            conversion_rate_percent: 67,
-          },
-          recent_activity: {
-            recent_orders: [
-              { id: '1', customer: 'Chefs Table', product: '100g Bag', quantity: 10, date: new Date().toISOString(), status: 'pending_seed' },
-              { id: '2', customer: 'Gourmet Berlin', product: '225g Bag', quantity: 5, date: new Date().toISOString(), status: 'growing' }
-            ],
-            recent_customers: [
-              { id: '1', name: 'Altes Zollhaus', status: 'prospect', created_at: new Date().toISOString() },
-              { id: '2', name: 'Facil', status: 'active', created_at: new Date().toISOString() }
-            ],
-          },
-        }
-      });
-    }
+    // Reorder alerts
+    const seedReorderAlerts = (seedInv || []).filter((inv: any) => {
+      if (!inv.crop) return false;
+      const remainingTrays = Math.floor(inv.quantity_grams / (inv.crop.seeds_per_tray || 60));
+      return remainingTrays < (inv.reorder_threshold_trays || 20);
+    }).length;
+    const packageReorderAlerts = (packageInv || []).filter(
+      (inv: any) => inv.quantity_available < inv.reorder_threshold
+    ).length;
 
     return NextResponse.json({
       success: true,
       data: {
         overview: {
-          total_crops: totalCrops,
+          total_crops: nonDeletedCrops.length,
           active_crops: activeCrops,
-          total_customers: totalCustomers,
           active_customers: activeCustomers,
-          prospect_customers: prospects,
-          total_orders: totalOrders,
-          pending_orders: pendingOrders,
+          total_customers: custs.length,
+          active_orders: liveOrders.length,
         },
-        revenue: {
-          total_order_value_eur: parseFloat(totalOrderValue.toFixed(2)),
-          average_order_value_eur: totalOrders > 0 ? parseFloat((totalOrderValue / totalOrders).toFixed(2)) : 0,
-          orders_counted: totalOrders,
+        this_month: {
+          label: today.toLocaleDateString('en-DE', { month: 'long', year: 'numeric' }),
+          deliveries: monthTuesdays.length,
+          revenue: monthStats.revenue,
+          packages: monthStats.packages,
+          kg: +(monthStats.grams / 1000).toFixed(1),
+        },
+        all_time: {
+          revenue: allTimeStats.revenue,
+          packages: allTimeStats.packages,
+          kg: +(allTimeStats.grams / 1000).toFixed(1),
+          deliveries: allTuesdays.length,
+        },
+        next_delivery: {
+          date: nextTuesdayDate.toISOString().split('T')[0],
+          revenue: nextWeekStats.revenue,
+          packages: nextWeekStats.packages,
         },
         operations: {
           active_seeding_batches: activeSeedingBatches,
           pending_follow_ups: pendingFollowUps,
-          follow_up_conversion_rate_percent: followUpConversionRate,
-        },
-        lead_sources: {
-          website: websiteLeadCount,
-          saletracker: saletrackerLeadCount,
-          total: websiteLeadCount + saletrackerLeadCount,
         },
         alerts: {
           seed_reorder_alerts: seedReorderAlerts,
           package_reorder_alerts: packageReorderAlerts,
-        },
-        customer_funnel: {
-          prospects,
-          active: activeCustomers,
-          paused: pausedCustomers,
-          inactive: inactiveCustomers,
-          conversion_rate_percent: totalCustomers > 0
-            ? parseFloat(((activeCustomers / totalCustomers) * 100).toFixed(2))
-            : 0,
-        },
-        recent_activity: {
-          recent_orders: recentOrders,
-          recent_customers: recentCustomers,
         },
       },
     });
