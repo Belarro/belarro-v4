@@ -273,13 +273,28 @@ export default function InvoicesPage() {
           <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Invoices</h1>
           <p className="text-sm text-gray-500 mt-1">Auto-generated from active orders. Edit or add lines before printing.</p>
         </div>
-        <input
-          type="month"
-          value={month}
-          onChange={e => setMonth(e.target.value)}
-          min="2026-01"
-          className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-green-500 outline-none"
-        />
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              const [y, m] = month.split('-').map(Number);
+              const prev = m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`;
+              if (prev >= '2026-01') setMonth(prev);
+            }}
+            className="px-3 py-2 border border-gray-200 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-30"
+            disabled={month <= '2026-01'}
+          >←</button>
+          <span className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium min-w-[140px] text-center">
+            {fmtMonth(month)}
+          </span>
+          <button
+            onClick={() => {
+              const [y, m] = month.split('-').map(Number);
+              const next = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`;
+              setMonth(next);
+            }}
+            className="px-3 py-2 border border-gray-200 rounded-lg text-sm hover:bg-gray-50"
+          >→</button>
+        </div>
       </div>
 
       {loading ? (
