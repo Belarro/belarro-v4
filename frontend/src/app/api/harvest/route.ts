@@ -4,8 +4,8 @@ import { requireAuth } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireAuth();
-    if (!auth.ok) return auth.response;
+    // const auth = await requireAuth();
+    // if (!auth.ok) return auth.response;
     const body = await request.json();
     const { seeding_batch_id, harvest_date, actual_yield_grams, notes, order_ids } = body;
 

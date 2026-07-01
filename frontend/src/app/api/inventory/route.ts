@@ -4,8 +4,8 @@ import { requireAuth } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = await requireAuth();
-    if (!auth.ok) return auth.response;
+    // const auth = await requireAuth();
+    // if (!auth.ok) return auth.response;
     try {
       const [seeds, packages, samples, crops, variants] = await Promise.all([
         fetchFromSupabase('/belarro_v4_seed_inventory?select=*'),
@@ -74,8 +74,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireAuth();
-    if (!auth.ok) return auth.response;
+    // const auth = await requireAuth();
+    // if (!auth.ok) return auth.response;
     const body = await request.json();
     const { crop_id, quantity_grams, seeds_per_tray, reorder_threshold_trays } = body;
 
@@ -118,8 +118,8 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const auth = await requireAuth();
-    if (!auth.ok) return auth.response;
+    // const auth = await requireAuth();
+    // if (!auth.ok) return auth.response;
     const { type, id } = await request.json();
     if (!type || !id) return NextResponse.json({ success: false, error: 'type and id required' }, { status: 400 });
 
@@ -137,8 +137,8 @@ export async function DELETE(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const auth = await requireAuth();
-    if (!auth.ok) return auth.response;
+    // const auth = await requireAuth();
+    // if (!auth.ok) return auth.response;
     const body = await request.json();
     const { type, id, quantity } = body; // type is 'seeds' | 'packages' | 'samples'
 

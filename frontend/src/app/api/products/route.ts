@@ -4,8 +4,8 @@ import { requireAuth } from '@/lib/auth';
 
 export async function GET() {
   try {
-    const auth = await requireAuth();
-    if (!auth.ok) return auth.response;
+    // const auth = await requireAuth();
+    // if (!auth.ok) return auth.response;
     const data = await fetchFromSupabase('/products?order=sort_order.asc');
     return NextResponse.json({ success: true, data: data || [] });
   } catch (error) {

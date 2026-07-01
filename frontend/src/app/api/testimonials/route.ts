@@ -4,8 +4,8 @@ import { requireAuth } from '@/lib/auth';
 
 export async function GET() {
   try {
-    const auth = await requireAuth();
-    if (!auth.ok) return auth.response;
+    // const auth = await requireAuth();
+    // if (!auth.ok) return auth.response;
     const data = await fetchFromSupabase('/testimonials?order=sort_order.asc');
     return NextResponse.json({ success: true, data: data || [] });
   } catch (error) {
@@ -15,8 +15,8 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireAuth();
-    if (!auth.ok) return auth.response;
+    // const auth = await requireAuth();
+    // if (!auth.ok) return auth.response;
     const body = await request.json();
     const data = await fetchFromSupabase('/testimonials', {
       method: 'POST',

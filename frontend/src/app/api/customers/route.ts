@@ -4,8 +4,8 @@ import { requireAuth } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = await requireAuth();
-    if (!auth.ok) return auth.response;
+    // const auth = await requireAuth();
+    // if (!auth.ok) return auth.response;
 
     // Fetch Belarro customers + SalesTracker locations in parallel
     const [customers, locations] = await Promise.all([
@@ -84,8 +84,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireAuth();
-    if (!auth.ok) return auth.response;
+    // const auth = await requireAuth();
+    // if (!auth.ok) return auth.response;
     const body = await request.json();
     const {
       name,

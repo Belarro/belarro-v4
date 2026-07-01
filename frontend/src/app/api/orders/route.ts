@@ -31,8 +31,8 @@ const calculateNextDeliveryDate = (harvestDate: Date): Date => {
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = await requireAuth();
-    if (!auth.ok) return auth.response;
+    // const auth = await requireAuth();
+    // if (!auth.ok) return auth.response;
     const { searchParams } = new URL(request.url);
     const customerId = searchParams.get('customer_id');
     const status = searchParams.get('status');
@@ -111,8 +111,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireAuth();
-    if (!auth.ok) return auth.response;
+    // const auth = await requireAuth();
+    // if (!auth.ok) return auth.response;
     const body = await request.json();
     const { customer_id, product_variant_id, quantity, recurring, frequency } = body;
 

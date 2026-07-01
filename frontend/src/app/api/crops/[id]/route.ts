@@ -9,8 +9,8 @@ type Params = {
 
 export async function GET(request: NextRequest, props: Params) {
   try {
-    const auth = await requireAuth();
-    if (!auth.ok) return auth.response;
+    // const auth = await requireAuth();
+    // if (!auth.ok) return auth.response;
     const { id } = await props.params;
 
     // Fetch single crop with relations
@@ -51,8 +51,8 @@ export async function GET(request: NextRequest, props: Params) {
 
 export async function PUT(request: NextRequest, props: Params) {
   try {
-    const auth = await requireAuth();
-    if (!auth.ok) return auth.response;
+    // const auth = await requireAuth();
+    // if (!auth.ok) return auth.response;
     const { id } = await props.params;
 
     let body: any;
@@ -221,8 +221,8 @@ export async function PUT(request: NextRequest, props: Params) {
 
 export async function DELETE(request: NextRequest, props: Params) {
   try {
-    const auth = await requireAuth();
-    if (!auth.ok) return auth.response;
+    // const auth = await requireAuth();
+    // if (!auth.ok) return auth.response;
     const { id } = await props.params;
 
     // Soft delete

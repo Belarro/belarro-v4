@@ -49,8 +49,8 @@ function fmt(d: Date): string {
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = await requireAuth();
-    if (!auth.ok) return auth.response;
+    // const auth = await requireAuth();
+    // if (!auth.ok) return auth.response;
 
     const [orders, variants, crops, procedures, customers, batches, harvests, mixComponents] = await Promise.all([
       fetchFromSupabase('/belarro_v4_order?status=in.(active,pending_seed,growing)&deleted_at=is.null&select=*'),

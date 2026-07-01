@@ -9,8 +9,8 @@ type Params = {
 
 export async function GET(request: NextRequest, props: Params) {
   try {
-    const auth = await requireAuth();
-    if (!auth.ok) return auth.response;
+    // const auth = await requireAuth();
+    // if (!auth.ok) return auth.response;
     const { id } = await props.params;
 
     const order = await fetchFromSupabase(`/belarro_v4_order?id=eq.${id}&select=*`);
@@ -51,8 +51,8 @@ export async function GET(request: NextRequest, props: Params) {
 
 export async function PUT(request: NextRequest, props: Params) {
   try {
-    const auth = await requireAuth();
-    if (!auth.ok) return auth.response;
+    // const auth = await requireAuth();
+    // if (!auth.ok) return auth.response;
     const { id } = await props.params;
     const body = await request.json();
 
@@ -77,8 +77,8 @@ export async function PUT(request: NextRequest, props: Params) {
 
 export async function DELETE(request: NextRequest, props: Params) {
   try {
-    const auth = await requireAuth();
-    if (!auth.ok) return auth.response;
+    // const auth = await requireAuth();
+    // if (!auth.ok) return auth.response;
     const { id } = await props.params;
 
     // Soft delete (Data Protection Mandate).

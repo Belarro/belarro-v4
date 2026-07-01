@@ -16,8 +16,8 @@ import { logError } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = await requireAuth();
-    if (!auth.ok) return auth.response;
+    // const auth = await requireAuth();
+    // if (!auth.ok) return auth.response;
 
     const { searchParams } = new URL(request.url);
     const cropId = searchParams.get('crop_id');
@@ -59,8 +59,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireAuth();
-    if (!auth.ok) return auth.response;
+    // const auth = await requireAuth();
+    // if (!auth.ok) return auth.response;
 
     const body = await request.json();
     const { crop_id, size_name, size_grams, price_eur, is_internal } = body;
@@ -109,8 +109,8 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const auth = await requireAuth();
-    if (!auth.ok) return auth.response;
+    // const auth = await requireAuth();
+    // if (!auth.ok) return auth.response;
 
     const body = await request.json();
     const { id, size_name, size_grams, price_eur, is_internal } = body;
@@ -159,8 +159,8 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const auth = await requireAuth();
-    if (!auth.ok) return auth.response;
+    // const auth = await requireAuth();
+    // if (!auth.ok) return auth.response;
 
     const body = await request.json();
     const { id } = body;

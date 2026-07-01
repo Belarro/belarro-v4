@@ -99,8 +99,8 @@ export async function GET(request: NextRequest) {
   try {
     // For now, skip auth check — rely on deployment being private
     // TODO: restore session-based auth once cookie handling is fixed on Vercel
-    // const auth = await requireAuth();
-    // if (!auth.ok) return auth.response;
+    // // const auth = await requireAuth();
+    // // if (!auth.ok) return auth.response;
 
     const today = new Date();
     const thisYear = today.getFullYear();

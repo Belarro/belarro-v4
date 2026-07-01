@@ -4,8 +4,8 @@ import { requireAuth } from '@/lib/auth';
 
 export async function GET() {
   try {
-    const auth = await requireAuth();
-    if (!auth.ok) return auth.response;
+    // const auth = await requireAuth();
+    // if (!auth.ok) return auth.response;
     const data = await fetchFromSupabase('/belarro_v4_packaging_stock?select=*&order=size_name.asc');
     return NextResponse.json({ success: true, data: data || [] });
   } catch (error) {
@@ -15,8 +15,8 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireAuth();
-    if (!auth.ok) return auth.response;
+    // const auth = await requireAuth();
+    // if (!auth.ok) return auth.response;
     const { size_name, quantity } = await request.json();
     if (!size_name) return NextResponse.json({ success: false, error: 'size_name is required' }, { status: 400 });
 
@@ -37,8 +37,8 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const auth = await requireAuth();
-    if (!auth.ok) return auth.response;
+    // const auth = await requireAuth();
+    // if (!auth.ok) return auth.response;
     const { id } = await request.json();
     if (!id) return NextResponse.json({ success: false, error: 'id required' }, { status: 400 });
     await fetchFromSupabase(`/belarro_v4_packaging_stock?id=eq.${id}`, { method: 'DELETE' });
@@ -50,8 +50,8 @@ export async function DELETE(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const auth = await requireAuth();
-    if (!auth.ok) return auth.response;
+    // const auth = await requireAuth();
+    // if (!auth.ok) return auth.response;
     const { id, quantity, mode } = await request.json();
     if (!id || quantity === undefined) return NextResponse.json({ success: false, error: 'id and quantity required' }, { status: 400 });
 
