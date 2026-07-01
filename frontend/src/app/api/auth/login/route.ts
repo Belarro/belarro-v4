@@ -21,7 +21,10 @@ export async function POST(request: NextRequest) {
       `/admin_users?email=eq.${encodeURIComponent(email)}&select=id,email,password_hash`
     );
 
+    console.log('Login attempt:', { email, found: Array.isArray(users) ? users.length : 0, users });
+
     if (!Array.isArray(users) || users.length === 0) {
+      console.log('User not found:', email);
       return NextResponse.json(
         { success: false, error: 'Invalid email or password' },
         { status: 401 }
