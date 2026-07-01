@@ -16,21 +16,28 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
 
-    const supabase = createSupabaseBrowserClient();
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), password }),
+        credentials: 'include',
+      });
 
-    if (signInError) {
-      setError('Invalid email or password.');
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        setError(data.error || 'Login failed.');
+        setLoading(false);
+        return;
+      }
+
+      router.refresh();
+      router.replace('/admin');
+    } catch (err) {
+      setError('Login failed. Please try again.');
       setLoading(false);
-      return;
     }
-
-    // Full navigation so the new session cookie is picked up by middleware.
-    router.refresh();
-    router.replace('/admin');
   }
 
   return (
